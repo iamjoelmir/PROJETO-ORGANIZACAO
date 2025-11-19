@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Interativo - Painel Administrativo</title>
+    <!-- Inclui o Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inclui a biblioteca de ícones Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- jsPDF e html2canvas para exportar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <style>
+        /* Estilo para fonte Inter */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .dragging {
+            opacity: 0.5;
+            transform: rotate(2deg);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Destaque na coluna ao arrastar por cima */
+        .drag-over {
+            background-color: rgba(255, 255, 255, 0.6); /* Branco translúcido */
+        }
+
+        .kanban-container {
+            display: flex;
+            justify-content: center;
+            overflow-x: auto;
+            min-height: calc(100vh - 100px);
+            padding: 24px;
+            gap: 16px;
+        }
+
+        .kanban-column {
+            width: 320px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            border-radius: 0.5rem;
+        }
+
+        .kanban-column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid currentColor;
+        }
+
+        .kanban-column-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .add-card-btn {
+            padding: 6px 10px;
+            font-size: 0.875rem;
+            border-radius: 0.375rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        
+        .kanban-cards {
+            flex-grow: 1;
+            min-height: 150px;
+            transition: background-color 0.2s ease;
+            border-bottom-left-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+        /* Quando muitos cards, habilita rolagem na coluna */
+        .kanban-cards.scrollable {
+            max-height: 520px;
+            overflow-y: auto;
+        }
+
+        /* Estilos para o Modal */
+        #modal-overlay {
+            transition: opacity 0.2s ease-in-out;
+        }
+        #card-modal {
+            transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+        }
+        .modal-hidden {
+            opacity: 0;
+            transform: scale(0.95);
+            pointer-events: none;
+        }
+        .modal-visible {
+            opacity: 1;
+            transform: scale(1);
+            pointer-events: auto;
+        }
+
+        /* Estilo para seletor de cor no modal */
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: border-color 0.2s ease;
+        }
+        .color-swatch.selected {
+            border-color: #4f46e5; /* Indigo 600 */
+        }
+
+        /* Estilos para o Modal de Relatório */
+        #report-modal {
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .report-chart {
+            margin: 20px 0;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .report-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin: 16px 0;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+
+        .report-table th {
+            background: #f3f4f6;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
+            font-size: 0.875rem;
+        }
+
+        .report-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+        }
+
+        .report-table tr:hover {
+            background: #f9fafb;
+        }
+
+        .column-color-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+    </style>
+    <!-- Importa a fonte Inter do Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-800">Kanban Interativo — Painel Administrativo</h1>
+            <div class="flex items-center space-x-3">
+                <button id="report-button" class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm transition-colors flex items-center space-x-2">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span>Gerar Relatório</span>
+                </button>
+                <button id="save-button" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors flex items-center space-x-2">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>Salvar Alterações</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Container principal do Kanban com rolagem horizontal -->
+    <main class="kanban-container p-4 lg:p-6 space-x-4">
+
+        <!-- Coluna 1: Em análise (BG Cinza) -->
+        <div class="kanban-column bg-gray-200 shadow-inner">
+            <div class="kanban-column-header text-gray-700">
+                <h2 class="kanban-column-title">1. Em análise</h2>
+                <button class="add-card-btn text-gray-600 hover:text-gray-900 hover:bg-gray-300">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="1">
+                <!-- Cards serão carregados pelo JS -->
+            </div>
+        </div>
+
+        <!-- Coluna 2: Processo (BG Azul) -->
+        <div class="kanban-column bg-blue-100 shadow-inner">
+            <div class="kanban-column-header text-blue-800">
+                <h2 class="kanban-column-title">2. Processo</h2>
+                <button class="add-card-btn text-blue-700 hover:text-blue-900 hover:bg-blue-200">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="2">
+                <!-- Cards serão carregados pelo JS -->
+            </div>
+        </div>
+
+        <!-- Coluna 3: Desenvolvendo (BG Amarelo) -->
+        <div class="kanban-column bg-yellow-100 shadow-inner">
+            <div class="kanban-column-header text-yellow-800">
+                <h2 class="kanban-column-title">3. Desenvolvendo</h2>
+                <button class="add-card-btn text-yellow-700 hover:text-yellow-900 hover:bg-yellow-200">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="3">
+                <!-- Cards serão carregados pelo JS -->
+            </div>
+        </div>
+
+        <!-- Coluna 4: Concluído (BG Verde) -->
+        <div class="kanban-column bg-green-100 shadow-inner">
+            <div class="kanban-column-header text-green-800">
+                <h2 class="kanban-column-title">4. Concluído</h2>
+                <button class="add-card-btn text-green-700 hover:text-green-900 hover:bg-green-200">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="4">
+                <!-- Cards serão carregados pelo JS -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 modal-hidden"></div>
+
+    <!-- Modal de Relatório -->
+    <div id="report-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl bg-white rounded-lg shadow-xl z-50 p-6 modal-hidden">
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-bold text-gray-800">Relatório do Kanban</h3>
+            <button id="report-close" class="text-gray-500 hover:text-gray-800">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <!-- Estatísticas Gerais -->
+        <div class="report-stats">
+            <div class="stat-box">
+                <div class="stat-value" id="total-cards">0</div>
+                <div class="stat-label">Total de Tarefas</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="completion-percentage">0%</div>
+                <div class="stat-label">Conclusão</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="in-progress-count">0</div>
+                <div class="stat-label">Em Progresso</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="overdue-count">0</div>
+                <div class="stat-label">Atrasadas</div>
+            </div>
+        </div>
+
+        <!-- Gráfico de Distribuição por Coluna -->
+        <div class="report-chart">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">Distribuição por Status</h4>
+            <div id="column-distribution"></div>
+        </div>
+
+        <!-- Gráfico de Prioridade -->
+        <div class="report-chart">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">Distribuição por Prioridade</h4>
+            <div id="priority-distribution"></div>
+        </div>
+
+        <!-- Tabela Detalhada -->
+        <div class="report-chart">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">Detalhes de Todas as Tarefas</h4>
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Tarefa</th>
+                        <th>Status</th>
+                        <th>Prioridade</th>
+                        <th>Prazo</th>
+                        <th>Responsável</th>
+                        <th>Categoria</th>
+                    </tr>
+                </thead>
+                <tbody id="report-table-body">
+                    <!-- Linhas preenchidas por JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Botão Fechar -->
+        <div class="flex justify-end gap-3 mt-6">
+            <button id="report-download-btn" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors flex items-center space-x-2">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>Baixar PDF</span>
+            </button>
+            <button id="report-close-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md shadow-sm transition-colors">
+                Fechar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal de Edição/Criação de Card -->
+    <div id="card-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-lg shadow-xl z-50 p-6 modal-hidden">
+        
+        <div class="flex justify-between items-center mb-4">
+            <h3 id="modal-title" class="text-xl font-semibold">Editar Tarefa</h3>
+            <button id="modal-close" class="text-gray-500 hover:text-gray-800">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <form id="modal-form" class="space-y-4">
+            <!-- ID oculto para rastreamento -->
+            <input type="hidden" id="modal-card-id">
+            
+            <div>
+                <label for="modal-card-title" class="block text-sm font-medium text-gray-700">Título da Tarefa</label>
+                <input type="text" id="modal-card-title" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm" required>
+            </div>
+
+            <div>
+                <label for="modal-card-specs" class="block text-sm font-medium text-gray-700">Especificações</label>
+                <textarea id="modal-card-specs" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="modal-card-prazo" class="block text-sm font-medium text-gray-700">Prazo</label>
+                    <input type="date" id="modal-card-prazo" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                </div>
+                <div>
+                    <label for="modal-card-necessidade" class="block text-sm font-medium text-gray-700">Nível de Necessidade</label>
+                    <select id="modal-card-necessidade" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                        <option value="Baixa">Baixa</option>
+                        <option value="Média">Média</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Crítica">Crítica</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- NOVO CAMPO: Responsável (Programador) -->
+            <div>
+                <label for="modal-card-responsavel" class="block text-sm font-medium text-gray-700">Responsável (Programador)</label>
+                <input type="text" id="modal-card-responsavel" placeholder="Ex: João Silva" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+            </div>
+
+            <div>
+                <label for="modal-card-categoria" class="block text-sm font-medium text-gray-700">Categoria</label>
+                <input type="text" id="modal-card-categoria" placeholder="Ex: Backend, Frontend, Bug" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+            </div>
+
+            <!-- Seletor de Cores -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Cor do Card</label>
+                <div id="modal-color-swatches" class="mt-2 flex space-x-2">
+                    <div class="color-swatch bg-white border-gray-300 selected" data-color-class="bg-white"></div>
+                    <div class="color-swatch bg-yellow-100" data-color-class="bg-yellow-100"></div>
+                    <div class="color-swatch bg-green-100" data-color-class="bg-green-100"></div>
+                    <div class="color-swatch bg-blue-100" data-color-class="bg-blue-100"></div>
+                    <div class="color-swatch bg-red-100" data-color-class="bg-red-100"></div>
+                    <div class="color-swatch bg-purple-100" data-color-class="bg-purple-100"></div>
+                </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="flex justify-between items-center pt-4">
+                <div class="flex space-x-2">
+                    <button type="button" id="modal-delete" class="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors flex items-center space-x-1">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> <span>Excluir</span>
+                    </button>
+                    <button type="button" id="modal-duplicate" class="px-3 py-2 text-sm font-medium text-white bg-gray-500 hover:bg-gray-600 rounded-md shadow-sm transition-colors flex items-center space-x-1">
+                        <i data-lucide="copy" class="w-4 h-4"></i> <span>Duplicar</span>
+                    </button>
+                </div>
+                <div class="space-x-2">
+                    <button type="button" id="modal-cancel" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md shadow-sm transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="modal-save" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors">
+                        Salvar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Inicializa ícones do Lucide
+            lucide.createIcons();
+
+            const columns = document.querySelectorAll('.kanban-cards');
+            const addCardButtons = document.querySelectorAll('.add-card-btn');
+            const saveButton = document.getElementById('save-button');
+            const API_BASE = 'http://localhost:3663';
+            
+            // Elementos do Modal
+            const modal = document.getElementById('card-modal');
+            const modalOverlay = document.getElementById('modal-overlay');
+            const modalForm = document.getElementById('modal-form');
+            const modalTitle = document.getElementById('modal-title');
+            const modalClose = document.getElementById('modal-close');
+            const modalCancel = document.getElementById('modal-cancel');
+            const modalSave = document.getElementById('modal-save');
+            const modalDelete = document.getElementById('modal-delete');
+            const modalDuplicate = document.getElementById('modal-duplicate');
+            const colorSwatchesContainer = document.getElementById('modal-color-swatches');
+            
+            // Inputs do Formulário
+            const modalCardId = document.getElementById('modal-card-id');
+            const modalCardTitle = document.getElementById('modal-card-title');
+            const modalCardSpecs = document.getElementById('modal-card-specs');
+            const modalCardPrazo = document.getElementById('modal-card-prazo');
+            const modalCardNecessidade = document.getElementById('modal-card-necessidade');
+            const modalCardCategoria = document.getElementById('modal-card-categoria');
+            const modalCardResponsavel = document.getElementById('modal-card-responsavel'); // NOVO: Responsável
+
+            let draggedCard = null;
+            let currentEditingCard = null;
+            let currentColumnEl = null;
+            let isDirty = false; // Rastreia alterações não salvas
+
+            // --- Gerenciamento de Estado (Salvar/Carregar) ---
+
+            function setDirty(state = true) {
+                isDirty = state;
+                if (isDirty) {
+                    saveButton.classList.add('animate-pulse', 'bg-red-600', 'hover:bg-red-700');
+                    saveButton.querySelector('span').textContent = 'Salvar Pendente';
+                } else {
+                    saveButton.classList.remove('animate-pulse', 'bg-red-600', 'hover:bg-red-700');
+                    saveButton.querySelector('span').textContent = 'Salvo!';
+                    setTimeout(() => {
+                        saveButton.querySelector('span').textContent = 'Salvar Alterações';
+                    }, 2000);
+                }
+            }
+
+            async function saveStateToLocalStorage() {
+                const state = [];
+                columns.forEach(column => {
+                    const columnId = column.dataset.columnId;
+                    column.querySelectorAll('.kanban-card').forEach((card, index) => {
+                        state.push({
+                            id: card.dataset.cardId,
+                            title: card.dataset.title,
+                            specs: card.dataset.specs,
+                            prazo: card.dataset.prazo,
+                            necessidade: card.dataset.necessidade,
+                            categoria: card.dataset.categoria,
+                            responsavel: card.dataset.responsavel, // NOVO CAMPO SALVO
+                            colorClass: card.dataset.colorClass,
+                            column: columnId,
+                            order: index // Salva a ordem
+                        });
+                    });
+                });
+
+                const json = JSON.stringify(state);
+
+                // Tenta salvar no servidor; em caso de erro, salva no localStorage como fallback
+                try {
+                    const res = await fetch(`${API_BASE}/state`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: json
+                    });
+                    if (!res.ok) throw new Error('Falha ao salvar no servidor');
+                    setDirty(false);
+                    console.log('Estado salvo no servidor.');
+                } catch (err) {
+                    localStorage.setItem('kanbanState', json);
+                    setDirty(false);
+                    console.log('Servidor indisponível. Estado salvo localmente.');
+                }
+            }
+
+            async function loadStateFromLocalStorage() {
+                // Primeiro tenta carregar do servidor
+                try {
+                    const res = await fetch(`${API_BASE}/state`);
+                    if (res.ok) {
+                        const serverState = await res.json();
+                        if (serverState && serverState.length > 0) {
+                            columns.forEach(col => col.innerHTML = '');
+                            // Ordena e insere
+                            serverState.sort((a, b) => a.order - b.order);
+                            serverState.forEach(cardData => {
+                                const columnEl = document.querySelector(`.kanban-cards[data-column-id="${cardData.column}"]`);
+                                if (columnEl) createNewCard(cardData, columnEl);
+                            });
+                            // após carregar tudo, ordena cada coluna por data e atualiza scroll
+                            columns.forEach(col => {
+                                sortColumnByDate(col);
+                                updateColumnScrollState(col);
+                            });
+                            console.log('Estado carregado do servidor.');
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Não foi possível conectar ao servidor para carregar estado:', e);
+                }
+
+                // Fallback para localStorage
+                const state = JSON.parse(localStorage.getItem('kanbanState'));
+                if (!state || state.length === 0) {
+                    console.log('Nenhum estado salvo encontrado. Carregando quadro vazio.');
+                    return;
+                }
+
+                // Limpa todas as colunas
+                columns.forEach(col => col.innerHTML = '');
+                
+                // Ordena os cards pela ordem salva
+                state.sort((a, b) => a.order - b.order);
+
+                // Cria e insere os cards
+                state.forEach(cardData => {
+                    const columnEl = document.querySelector(`.kanban-cards[data-column-id="${cardData.column}"]`);
+                    if (columnEl) {
+                        createNewCard(cardData, columnEl);
+                    }
+                });
+                // após carregar tudo, ordena cada coluna por data e atualiza scroll
+                columns.forEach(col => {
+                    sortColumnByDate(col);
+                    updateColumnScrollState(col);
+                });
+                console.log('Estado carregado do localStorage.');
+            }
+
+            // // Opcional: Função para carregar dados de exemplo se o localStorage estiver vazio
+            // function loadInitialExampleData() {
+            //     const exampleData = [
+            //         { id: 'c1', title: '[Fase 3.1] API Conexões (Admin)', specs: '...', prazo: '2025-11-20', necessidade: 'Média', categoria: 'Backend', responsavel: 'Jane Doe', colorClass: 'bg-white', column: '1', order: 0 },
+            //         { id: 'c9', title: '[Fase 1.1] Implementar Middleware', specs: '...', prazo: '', necessidade: 'Crítica', categoria: 'Backend', responsavel: 'John Smith', colorClass: 'bg-purple-100', column: '2', order: 0 }
+            //     ];
+            //     localStorage.setItem('kanbanState', JSON.stringify(exampleData));
+            //     loadStateFromLocalStorage();
+            // }
+
+            // Listener do botão Salvar
+            saveButton.addEventListener('click', saveStateToLocalStorage);
+
+            // Listener para bloquear fechamento da página
+            window.addEventListener('beforeunload', (e) => {
+                if (isDirty) {
+                    e.preventDefault();
+                    e.returnValue = ''; // Necessário para a maioria dos navegadores
+                }
+            });
+
+
+            // --- Funções de Drag and Drop ---
+            function attachCardListeners(card) {
+                card.addEventListener('dragstart', (e) => {
+                    draggedCard = card;
+                    setTimeout(() => card.classList.add('dragging'), 0);
+                });
+
+                card.addEventListener('dragend', () => {
+                    if (draggedCard) {
+                        draggedCard.classList.remove('dragging');
+                        draggedCard = null;
+                    }
+                });
+
+                card.addEventListener('dblclick', () => {
+                    openModal(card);
+                });
+            }
+
+            columns.forEach(column => {
+                column.addEventListener('dragover', (e) => {
+                    e.preventDefault(); 
+                    column.classList.add('drag-over');
+                    const afterElement = getDragAfterElement(column, e.clientY);
+                    
+                    if (draggedCard) {
+                        if (afterElement == null) {
+                            column.appendChild(draggedCard);
+                        } else {
+                            column.insertBefore(draggedCard, afterElement);
+                        }
+                    }
+                });
+
+                column.addEventListener('dragleave', () => {
+                    column.classList.remove('drag-over');
+                });
+
+                column.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    column.classList.remove('drag-over');
+                    setDirty(true); // Marcar como "sujo" ao mover um card
+                    // Após soltar, reordena por data e atualiza scroll
+                    sortColumnByDate(column);
+                    updateColumnScrollState(column);
+                });
+            });
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.kanban-card:not(.dragging)')];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            // --- Funções do Modal ---
+
+            // Seletor de cor no modal
+            colorSwatchesContainer.addEventListener('click', (e) => {
+                const target = e.target.closest('.color-swatch');
+                if (!target) return;
+
+                // Remove 'selected' de todos
+                colorSwatchesContainer.querySelectorAll('.color-swatch').forEach(swatch => {
+                    swatch.classList.remove('selected');
+                });
+                // Adiciona 'selected' ao clicado
+                target.classList.add('selected');
+            });
+
+            function getSelectedColor() {
+                const selectedSwatch = colorSwatchesContainer.querySelector('.color-swatch.selected');
+                return selectedSwatch ? selectedSwatch.dataset.colorClass : 'bg-white';
+            }
+
+            function setSelectedColor(colorClass) {
+                colorSwatchesContainer.querySelectorAll('.color-swatch').forEach(swatch => {
+                    swatch.classList.remove('selected');
+                    if (swatch.dataset.colorClass === (colorClass || 'bg-white')) {
+                        swatch.classList.add('selected');
+                    }
+                });
+            }
+
+            // Abrir modal
+            function openModal(card = null, column = null) {
+                currentEditingCard = card;
+                currentColumnEl = column;
+
+                if (card) {
+                    // Modo Edição
+                    modalTitle.textContent = 'Editar Tarefa';
+                    modalDelete.classList.remove('hidden');
+                    modalDuplicate.classList.remove('hidden');
+                    
+                    modalCardId.value = card.dataset.cardId;
+                    modalCardTitle.value = card.dataset.title || '';
+                    modalCardSpecs.value = card.dataset.specs || '';
+                    modalCardPrazo.value = card.dataset.prazo || '';
+                    modalCardNecessidade.value = card.dataset.necessidade || 'Baixa';
+                    modalCardCategoria.value = card.dataset.categoria || '';
+                    modalCardResponsavel.value = card.dataset.responsavel || ''; // NOVO: Carrega Responsável
+                    setSelectedColor(card.dataset.colorClass);
+
+                } else {
+                    // Modo Criação
+                    modalTitle.textContent = 'Criar Nova Tarefa';
+                    modalDelete.classList.add('hidden');
+                    modalDuplicate.classList.add('hidden');
+                    modalForm.reset(); 
+                    modalCardId.value = `card-${new Date().getTime()}`;
+                    setSelectedColor('bg-white'); // Padrão
+                }
+
+                modal.classList.remove('modal-hidden');
+                modal.classList.add('modal-visible');
+                modalOverlay.classList.remove('modal-hidden');
+                modalOverlay.classList.add('modal-visible');
+            }
+
+            // Fechar modal
+            function closeModal() {
+                modal.classList.add('modal-hidden');
+                modal.classList.remove('modal-visible');
+                modalOverlay.classList.add('modal-hidden');
+                modalOverlay.classList.remove('modal-visible');
+                currentEditingCard = null;
+                currentColumnEl = null;
+                modalForm.reset();
+            }
+
+            modalClose.addEventListener('click', closeModal);
+            modalCancel.addEventListener('click', closeModal);
+            modalOverlay.addEventListener('click', closeModal);
+
+            // Listener para Salvar
+            modalForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const formData = {
+                    id: modalCardId.value,
+                    title: modalCardTitle.value,
+                    specs: modalCardSpecs.value,
+                    prazo: modalCardPrazo.value,
+                    necessidade: modalCardNecessidade.value,
+                    categoria: modalCardCategoria.value,
+                    responsavel: modalCardResponsavel.value, // NOVO: Salva Responsável
+                    colorClass: getSelectedColor()
+                    // A coluna será definida no momento da criação/edição
+                };
+
+                if (currentEditingCard) {
+                    // Atualiza o card existente
+                    updateCard(currentEditingCard, formData);
+                } else {
+                    // Cria um novo card
+                    createNewCard(formData, currentColumnEl);
+                }
+
+                setDirty(true);
+                closeModal();
+            });
+
+            // Listener para Deletar
+            modalDelete.addEventListener('click', () => {
+                if (currentEditingCard) {
+                    // guarda referência da coluna antes de remover o card
+                    const col = currentEditingCard.closest('.kanban-cards');
+                    currentEditingCard.remove();
+                    setDirty(true);
+                    if (col) updateColumnScrollState(col);
+                    closeModal();
+                }
+            });
+
+            // Listener para Duplicar
+            modalDuplicate.addEventListener('click', () => {
+                if (currentEditingCard) {
+                    const formData = {
+                        id: `card-${new Date().getTime()}`, // Novo ID
+                        title: `(Cópia) ${modalCardTitle.value}`, // Novo Título
+                        specs: modalCardSpecs.value,
+                        prazo: modalCardPrazo.value,
+                        necessidade: modalCardNecessidade.value,
+                        categoria: modalCardCategoria.value,
+                        responsavel: modalCardResponsavel.value, // NOVO: Duplica Responsável
+                        colorClass: getSelectedColor()
+                    };
+                    
+                    // Pega a coluna do card que estamos editando
+                    const column = currentEditingCard.closest('.kanban-cards');
+                    createNewCard(formData, column);
+                    
+                    setDirty(true);
+                    // atualiza scroll e ordenação
+                    if (column) {
+                        sortColumnByDate(column);
+                        updateColumnScrollState(column);
+                    }
+                    closeModal();
+                }
+            });
+
+
+            // Adiciona listeners aos botões "+ Adicionar Tarefa"
+            addCardButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const columnEl = button.closest('.kanban-column').querySelector('.kanban-cards');
+                    openModal(null, columnEl);
+                });
+            });
+
+            // --- Funções de Manipulação do Card ---
+
+            const cardColorClasses = ['bg-white', 'bg-yellow-100', 'bg-green-100', 'bg-blue-100', 'bg-red-100', 'bg-purple-100'];
+
+            function renderCardContent(card, data) {
+                // Atualiza os data-* attributes
+                card.dataset.cardId = data.id;
+                card.dataset.title = data.title;
+                card.dataset.specs = data.specs;
+                card.dataset.prazo = data.prazo;
+                card.dataset.necessidade = data.necessidade;
+                card.dataset.categoria = data.categoria;
+                card.dataset.responsavel = data.responsavel; // NOVO: Atualiza data attribute
+                card.dataset.colorClass = data.colorClass || 'bg-white';
+                
+                // Atualiza a cor de fundo do card
+                cardColorClasses.forEach(c => card.classList.remove(c));
+                card.classList.add(data.colorClass || 'bg-white');
+
+                // Mapeamento de prioridade para classes do Tailwind
+                const necessidadeClasses = {
+                    'Baixa': 'bg-green-200 text-green-800',
+                    'Média': 'bg-yellow-200 text-yellow-800',
+                    'Alta': 'bg-red-200 text-red-800',
+                    'Crítica': 'bg-purple-200 text-purple-800'
+                };
+                
+                // Formata data (DD/MM/YYYY)
+                let prazoHtml = '';
+                if (data.prazo) {
+                    try {
+                        const [year, month, day] = data.prazo.split('-');
+                        const formattedDate = `${day}/${month}/${year}`;
+                        const isOverdue = new Date(data.prazo) < new Date().setHours(0,0,0,0);
+                        const dateColor = isOverdue ? 'text-red-600' : '';
+
+                        prazoHtml = `
+                            <span class="inline-flex items-center space-x-1 ${dateColor}" data-testid="prazo">
+                                <i data-lucide="calendar" class="w-3 h-3"></i>
+                                <span>${formattedDate}</span>
+                            </span>
+                        `;
+                    } catch (e) {
+                        console.error("Erro ao formatar data: ", e);
+                    }
+                }
+
+                // NOVO: Exibe Responsável
+                let responsavelHtml = '';
+                if (data.responsavel) {
+                    responsavelHtml = `
+                        <div class="flex items-center space-x-1 text-gray-600 truncate max-w-full">
+                            <i data-lucide="user" class="w-3 h-3"></i>
+                            <span class="text-xs font-medium truncate">${data.responsavel}</span>
+                        </div>
+                    `;
+                }
+
+                // Atualiza o HTML interno
+                card.innerHTML = `
+                    <h3 class="font-semibold text-sm mb-2">${data.title}</h3>
+                    ${data.categoria ? `<span class="text-xs text-indigo-600 font-medium mb-2 block">${data.categoria}</span>` : ''}
+                    <div class="flex justify-between items-center text-xs text-gray-600 mb-1">
+                        ${prazoHtml || '<span></span>'}
+                        <span class="inline-block px-2 py-0.5 rounded-full ${necessidadeClasses[data.necessidade] || 'bg-gray-200'}" data-testid="necessidade">
+                            ${data.necessidade}
+                        </span>
+                    </div>
+                    ${responsavelHtml ? `<div class="mt-2 border-t border-gray-200 pt-2">${responsavelHtml}</div>` : ''}
+                `;
+
+                // Recria os ícones do Lucide dentro do card
+                lucide.createIcons({ nodes: [card] });
+            }
+
+            // Ordena os cards de uma coluna por data de prazo (prazo vazio no final)
+            function sortColumnByDate(column) {
+                const cards = Array.from(column.querySelectorAll('.kanban-card'));
+                cards.sort((a, b) => {
+                    const da = a.dataset.prazo || '';
+                    const db = b.dataset.prazo || '';
+                    if (!da && !db) return 0;
+                    if (!da) return 1; // coloca sem prazo no final
+                    if (!db) return -1;
+                    // compara datas ISO (YYYY-MM-DD)
+                    const nda = new Date(da).getTime();
+                    const ndb = new Date(db).getTime();
+                    return nda - ndb;
+                });
+                cards.forEach(c => column.appendChild(c));
+            }
+
+            // Habilita/desabilita scroll por coluna quando ultrapassar 3 cards
+            function updateColumnScrollState(column) {
+                const count = column.querySelectorAll('.kanban-card').length;
+                if (count > 3) {
+                    column.classList.add('scrollable');
+                } else {
+                    column.classList.remove('scrollable');
+                }
+            }
+
+            function updateAllColumnsScroll() {
+                columns.forEach(col => updateColumnScrollState(col));
+            }
+
+            // Atualiza um card existente
+            function updateCard(card, data) {
+                renderCardContent(card, data);
+                // Reordena a coluna do card por data e atualiza scroll
+                const column = card.closest('.kanban-cards');
+                if (column) {
+                    sortColumnByDate(column);
+                    updateColumnScrollState(column);
+                }
+            }
+
+            // Cria um novo elemento de card
+            function createNewCard(data, columnEl) {
+                const newCard = document.createElement('div');
+                // As classes de cor são adicionadas pelo renderCardContent
+                newCard.className = 'kanban-card rounded-lg p-3 shadow-md cursor-move'; 
+                newCard.draggable = true;
+                
+                renderCardContent(newCard, data);
+                
+                columnEl.appendChild(newCard);
+                
+                // Adiciona os listeners de drag e dblclick ao novo card
+                attachCardListeners(newCard);
+
+                // Ordena e atualiza estado de scroll da coluna
+                sortColumnByDate(columnEl);
+                updateColumnScrollState(columnEl);
+            }
+
+            // --- Carregamento Inicial ---
+            loadStateFromLocalStorage();
+
+            // --- RELATÓRIO ---
+            const reportModal = document.getElementById('report-modal');
+            const reportOverlay = document.getElementById('modal-overlay');
+            const reportButton = document.getElementById('report-button');
+            const reportClose = document.getElementById('report-close');
+            const reportCloseBtn = document.getElementById('report-close-btn');
+
+            function openReportModal() {
+                reportModal.classList.remove('modal-hidden');
+                reportModal.classList.add('modal-visible');
+                reportOverlay.classList.remove('modal-hidden');
+                reportOverlay.classList.add('modal-visible');
+                generateReport();
+            }
+
+            function closeReportModal() {
+                reportModal.classList.add('modal-hidden');
+                reportModal.classList.remove('modal-visible');
+                reportOverlay.classList.add('modal-hidden');
+                reportOverlay.classList.remove('modal-visible');
+            }
+
+            reportButton.addEventListener('click', openReportModal);
+            reportClose.addEventListener('click', closeReportModal);
+            reportCloseBtn.addEventListener('click', closeReportModal);
+
+            const reportDownloadBtn = document.getElementById('report-download-btn');
+            reportDownloadBtn.addEventListener('click', downloadReportPDF);
+
+            function generateReport() {
+                // Coleta todos os cards
+                const allCards = [];
+                const columnNames = {
+                    '1': 'Em Análise',
+                    '2': 'Processo',
+                    '3': 'Desenvolvendo',
+                    '4': 'Concluído'
+                };
+                const columnColors = {
+                    '1': '#e5e7eb',
+                    '2': '#bfdbfe',
+                    '3': '#fef08a',
+                    '4': '#dcfce7'
+                };
+
+                columns.forEach(col => {
+                    const columnId = col.dataset.columnId;
+                    col.querySelectorAll('.kanban-card').forEach(card => {
+                        allCards.push({
+                            id: card.dataset.cardId,
+                            title: card.dataset.title,
+                            specs: card.dataset.specs,
+                            prazo: card.dataset.prazo,
+                            necessidade: card.dataset.necessidade,
+                            categoria: card.dataset.categoria,
+                            responsavel: card.dataset.responsavel,
+                            columnId: columnId,
+                            columnName: columnNames[columnId]
+                        });
+                    });
+                });
+
+                // Cálculos
+                const total = allCards.length;
+                const completed = allCards.filter(c => c.columnId === '4').length;
+                const inProgress = allCards.filter(c => c.columnId === '2' || c.columnId === '3').length;
+                const completionPercentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+                
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const overdue = allCards.filter(c => {
+                    if (!c.prazo || c.columnId === '4') return false;
+                    const prazoDate = new Date(c.prazo);
+                    return prazoDate < today;
+                }).length;
+
+                // Atualiza estatísticas
+                document.getElementById('total-cards').textContent = total;
+                document.getElementById('completion-percentage').textContent = completionPercentage + '%';
+                document.getElementById('in-progress-count').textContent = inProgress;
+                document.getElementById('overdue-count').textContent = overdue;
+
+                // Gráfico de Distribuição por Coluna
+                const columnDistribution = {};
+                ['1', '2', '3', '4'].forEach(id => {
+                    columnDistribution[columnNames[id]] = allCards.filter(c => c.columnId === id).length;
+                });
+
+                let columnChartHTML = '';
+                Object.entries(columnDistribution).forEach(([name, count]) => {
+                    const percentage = total === 0 ? 0 : Math.round((count / total) * 100);
+                    columnChartHTML += `
+                        <div class="mb-4">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span class="text-sm font-medium text-gray-700">${name}</span>
+                                <span class="text-sm font-semibold text-gray-900">${count} (${percentage}%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('column-distribution').innerHTML = columnChartHTML;
+
+                // Gráfico de Prioridade
+                const priorityDistribution = {
+                    'Baixa': allCards.filter(c => c.necessidade === 'Baixa').length,
+                    'Média': allCards.filter(c => c.necessidade === 'Média').length,
+                    'Alta': allCards.filter(c => c.necessidade === 'Alta').length,
+                    'Crítica': allCards.filter(c => c.necessidade === 'Crítica').length
+                };
+
+                const priorityColors = {
+                    'Baixa': '#10b981',
+                    'Média': '#f59e0b',
+                    'Alta': '#ef4444',
+                    'Crítica': '#7c3aed'
+                };
+
+                let priorityChartHTML = '';
+                Object.entries(priorityDistribution).forEach(([name, count]) => {
+                    const percentage = total === 0 ? 0 : Math.round((count / total) * 100);
+                    priorityChartHTML += `
+                        <div class="mb-4">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span class="text-sm font-medium text-gray-700">${name}</span>
+                                <span class="text-sm font-semibold text-gray-900">${count} (${percentage}%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="background: ${priorityColors[name]}; width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('priority-distribution').innerHTML = priorityChartHTML;
+
+                // Tabela detalhada
+                let tableHTML = '';
+                allCards.forEach(card => {
+                    const necessidadeColors = {
+                        'Baixa': 'background: #d1fae5; color: #065f46;',
+                        'Média': 'background: #fef3c7; color: #92400e;',
+                        'Alta': 'background: #fee2e2; color: #991b1b;',
+                        'Crítica': 'background: #ede9fe; color: #5b21b6;'
+                    };
+                    
+                    let prazoDisplay = '-';
+                    let prazoStyle = '';
+                    if (card.prazo) {
+                        const [year, month, day] = card.prazo.split('-');
+                        prazoDisplay = `${day}/${month}/${year}`;
+                        const prazoDate = new Date(card.prazo);
+                        if (prazoDate < today && card.columnId !== '4') {
+                            prazoStyle = 'color: #991b1b; font-weight: 600;';
+                        }
+                    }
+
+                    tableHTML += `
+                        <tr>
+                            <td><strong>${card.title}</strong></td>
+                            <td><span style="padding: 4px 8px; border-radius: 4px; background: ${columnColors[card.columnId]}; color: #1f2937;">${card.columnName}</span></td>
+                            <td><span style="padding: 4px 8px; border-radius: 4px; ${necessidadeColors[card.necessidade]}">${card.necessidade}</span></td>
+                            <td style="${prazoStyle}">${prazoDisplay}</td>
+                            <td>${card.responsavel || '-'}</td>
+                            <td>${card.categoria || '-'}</td>
+                        </tr>
+                    `;
+                });
+                document.getElementById('report-table-body').innerHTML = tableHTML;
+            }
+
+            function downloadReportPDF() {
+                // Coleta dados do relatório
+                const allCards = [];
+                const columnNames = {
+                    '1': 'Em Análise',
+                    '2': 'Processo',
+                    '3': 'Desenvolvendo',
+                    '4': 'Concluído'
+                };
+
+                columns.forEach(col => {
+                    const columnId = col.dataset.columnId;
+                    col.querySelectorAll('.kanban-card').forEach(card => {
+                        allCards.push({
+                            id: card.dataset.cardId,
+                            title: card.dataset.title,
+                            specs: card.dataset.specs,
+                            prazo: card.dataset.prazo,
+                            necessidade: card.dataset.necessidade,
+                            categoria: card.dataset.categoria,
+                            responsavel: card.dataset.responsavel,
+                            columnId: columnId,
+                            columnName: columnNames[columnId]
+                        });
+                    });
+                });
+
+                const total = allCards.length;
+                const completed = allCards.filter(c => c.columnId === '4').length;
+                const inProgress = allCards.filter(c => c.columnId === '2' || c.columnId === '3').length;
+                const completionPercentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+                
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const overdue = allCards.filter(c => {
+                    if (!c.prazo || c.columnId === '4') return false;
+                    const prazoDate = new Date(c.prazo);
+                    return prazoDate < today;
+                }).length;
+
+                // Gera HTML para o PDF
+                let pdfHTML = `
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <style>
+                            body { font-family: Arial, sans-serif; color: #333; }
+                            h1 { text-align: center; color: #1f2937; margin-bottom: 30px; }
+                            h2 { color: #374151; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+                            .stats { display: flex; justify-content: space-around; margin-bottom: 30px; }
+                            .stat-box { text-align: center; padding: 15px; background: #f3f4f6; border-radius: 8px; width: 22%; }
+                            .stat-value { font-size: 28px; font-weight: bold; color: #4f46e5; }
+                            .stat-label { font-size: 12px; color: #6b7280; margin-top: 5px; }
+                            .chart-section { margin-bottom: 25px; }
+                            .chart-item { margin-bottom: 12px; }
+                            .chart-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+                            .progress-bar { width: 100%; height: 20px; background: #e5e7eb; border-radius: 10px; overflow: hidden; }
+                            .progress-fill { height: 100%; background: linear-gradient(90deg, #4f46e5, #7c3aed); display: flex; align-items: center; color: white; font-size: 10px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                            th { background: #f3f4f6; padding: 10px; text-align: left; font-weight: bold; border-bottom: 2px solid #e5e7eb; font-size: 12px; }
+                            td { padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
+                            tr:nth-child(even) { background: #f9fafb; }
+                            .priority-low { background: #d1fae5; padding: 3px 6px; border-radius: 3px; }
+                            .priority-medium { background: #fef3c7; padding: 3px 6px; border-radius: 3px; }
+                            .priority-high { background: #fee2e2; padding: 3px 6px; border-radius: 3px; }
+                            .priority-critical { background: #ede9fe; padding: 3px 6px; border-radius: 3px; }
+                            .status-badge { padding: 3px 6px; border-radius: 3px; font-weight: bold; }
+                            .page-break { page-break-after: always; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>📊 Relatório do Kanban</h1>
+                        <p style="text-align: center; color: #6b7280; margin-bottom: 30px;">Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
+
+                        <div class="stats">
+                            <div class="stat-box">
+                                <div class="stat-value">${total}</div>
+                                <div class="stat-label">Total de Tarefas</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${completionPercentage}%</div>
+                                <div class="stat-label">Taxa de Conclusão</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${inProgress}</div>
+                                <div class="stat-label">Em Progresso</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${overdue}</div>
+                                <div class="stat-label">Atrasadas</div>
+                            </div>
+                        </div>
+
+                        <h2>📈 Distribuição por Status</h2>
+                        <div class="chart-section">
+                `;
+
+                // Distribuição por coluna
+                const columnDistribution = {};
+                ['1', '2', '3', '4'].forEach(id => {
+                    columnDistribution[columnNames[id]] = allCards.filter(c => c.columnId === id).length;
+                });
+
+                Object.entries(columnDistribution).forEach(([name, count]) => {
+                    const percentage = total === 0 ? 0 : Math.round((count / total) * 100);
+                    pdfHTML += `
+                        <div class="chart-item">
+                            <div class="chart-label">
+                                <span>${name}</span>
+                                <span>${count} (${percentage}%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${percentage}%">${percentage}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                pdfHTML += `
+                        </div>
+
+                        <h2>🎯 Distribuição por Prioridade</h2>
+                        <div class="chart-section">
+                `;
+
+                // Distribuição por prioridade
+                const priorityDistribution = {
+                    'Baixa': allCards.filter(c => c.necessidade === 'Baixa').length,
+                    'Média': allCards.filter(c => c.necessidade === 'Média').length,
+                    'Alta': allCards.filter(c => c.necessidade === 'Alta').length,
+                    'Crítica': allCards.filter(c => c.necessidade === 'Crítica').length
+                };
+
+                const priorityColors = {
+                    'Baixa': '#10b981',
+                    'Média': '#f59e0b',
+                    'Alta': '#ef4444',
+                    'Crítica': '#7c3aed'
+                };
+
+                Object.entries(priorityDistribution).forEach(([name, count]) => {
+                    const percentage = total === 0 ? 0 : Math.round((count / total) * 100);
+                    pdfHTML += `
+                        <div class="chart-item">
+                            <div class="chart-label">
+                                <span>${name}</span>
+                                <span>${count} (${percentage}%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="background: ${priorityColors[name]}; width: ${percentage}%">${percentage}%</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                pdfHTML += `
+                        </div>
+
+                        <div class="page-break"></div>
+
+                        <h2>📋 Detalhes de Todas as Tarefas</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Tarefa</th>
+                                    <th>Status</th>
+                                    <th>Prioridade</th>
+                                    <th>Prazo</th>
+                                    <th>Responsável</th>
+                                    <th>Categoria</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                // Tabela de detalhes
+                allCards.forEach(card => {
+                    let prazoDisplay = '-';
+                    if (card.prazo) {
+                        const [year, month, day] = card.prazo.split('-');
+                        prazoDisplay = `${day}/${month}/${year}`;
+                    }
+
+                    const priorityClass = {
+                        'Baixa': 'priority-low',
+                        'Média': 'priority-medium',
+                        'Alta': 'priority-high',
+                        'Crítica': 'priority-critical'
+                    }[card.necessidade] || '';
+
+                    pdfHTML += `
+                        <tr>
+                            <td><strong>${card.title}</strong></td>
+                            <td><span class="status-badge" style="background: ${columnDistribution[card.columnName] ? '#e0e7ff' : '#e0e7ff'}">${card.columnName}</span></td>
+                            <td><span class="${priorityClass}">${card.necessidade}</span></td>
+                            <td>${prazoDisplay}</td>
+                            <td>${card.responsavel || '-'}</td>
+                            <td>${card.categoria || '-'}</td>
+                        </tr>
+                    `;
+                });
+
+                pdfHTML += `
+                            </tbody>
+                        </table>
+                    </body>
+                    </html>
+                `;
+
+                // Usa html2pdf para gerar o PDF
+                const element = document.createElement('div');
+                element.innerHTML = pdfHTML;
+                
+                const opt = {
+                    margin: 8,
+                    filename: `Relatorio-Kanban-${new Date().toISOString().split('T')[0]}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
+                };
+                
+                html2pdf().set(opt).from(element).save();
+            }
+        });
+    </script>
+
+</body>
+</html>
