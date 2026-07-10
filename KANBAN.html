@@ -91,6 +91,8 @@
         }
         #card-modal {
             transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .modal-hidden {
             opacity: 0;
@@ -120,6 +122,7 @@
         #report-modal {
             max-height: 90vh;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .report-chart {
@@ -131,30 +134,40 @@
         }
 
         .report-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
             margin: 16px 0;
         }
 
         .stat-box {
+            flex: 1 1 140px;
             background: white;
-            padding: 16px;
+            padding: 14px 10px;
             border-radius: 8px;
             border: 1px solid #e5e7eb;
             text-align: center;
+            min-width: 0;
         }
 
         .stat-value {
-            font-size: 1.875rem;
+            font-size: 1.5rem;
             font-weight: 700;
             color: #1f2937;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .stat-label {
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             color: #6b7280;
             margin-top: 4px;
+        }
+
+        .report-table-wrap {
+            width: 100%;
+            overflow-x: auto;
         }
 
         .progress-bar {
@@ -180,23 +193,32 @@
 
         .report-table {
             width: 100%;
+            min-width: 900px;
             border-collapse: collapse;
             margin: 16px 0;
         }
 
         .report-table th {
             background: #f3f4f6;
-            padding: 12px;
+            padding: 8px 10px;
             text-align: left;
             font-weight: 600;
             border-bottom: 2px solid #e5e7eb;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
+            white-space: nowrap;
         }
 
         .report-table td {
-            padding: 12px;
+            padding: 8px 10px;
             border-bottom: 1px solid #e5e7eb;
-            font-size: 0.875rem;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .report-table td.cell-title {
+            white-space: normal;
+            max-width: 220px;
+            word-break: break-word;
         }
 
         .report-table tr:hover {
@@ -219,20 +241,47 @@
 <body class="bg-gray-100 text-gray-900">
 
     <header class="bg-white shadow-sm">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-gray-800">Kanban Interativo — Painel Administrativo</h1>
-            <div class="flex items-center space-x-3">
-                <button id="report-button" class="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm transition-colors flex items-center space-x-2">
+        <div class="max-w-full mx-auto py-3 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 flex-nowrap overflow-x-auto">
+            <h1 class="text-lg sm:text-xl font-bold text-gray-800 truncate shrink min-w-0">Kanban Interativo — Painel Administrativo</h1>
+            <div class="flex items-center gap-2 flex-nowrap shrink-0">
+                <input type="file" id="import-file-input" accept=".json" class="hidden">
+                <button id="select-file-button" class="px-3 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-md shadow-sm transition-colors flex items-center gap-2" title="Selecionar arquivo destino para salvamento automático">
+                    <i data-lucide="folder-open" class="w-4 h-4"></i>
+                    <span>Selecionar Destino</span>
+                </button>
+                <button id="import-button" class="px-3 py-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 rounded-md shadow-sm transition-colors flex items-center gap-2">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>Importar JSON</span>
+                </button>
+                <button id="report-button" class="px-3 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm transition-colors flex items-center gap-2">
                     <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
                     <span>Gerar Relatório</span>
                 </button>
-                <button id="save-button" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors flex items-center space-x-2">
-                    <i data-lucide="save" class="w-4 h-4"></i>
-                    <span>Salvar Alterações</span>
+                <button id="journal-button" class="px-3 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-md shadow-sm transition-colors flex items-center gap-2" title="Configurar e acompanhar jornada de trabalho diária">
+                    <i data-lucide="clock" class="w-4 h-4"></i>
+                    <span>Jornada</span>
+                    <span id="journal-live-badge" class="hidden ml-1 px-2 py-0.5 bg-teal-800 rounded-full text-xs font-mono"></span>
+                </button>
+                <button id="history-button" class="px-3 py-2 text-sm font-medium text-white bg-slate-600 hover:bg-slate-700 rounded-md shadow-sm transition-colors flex items-center gap-2" title="Histórico de atividades">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span>Histórico</span>
+                </button>
+                <button id="export-button" class="px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md shadow-sm transition-colors flex items-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Exportar JSON</span>
                 </button>
             </div>
         </div>
     </header>
+
+    <!-- Barra de busca global -->
+    <div class="bg-white border-t border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-2">
+            <i data-lucide="search" class="w-4 h-4 text-gray-400 shrink-0"></i>
+            <input type="text" id="global-search" placeholder="Buscar em todas as colunas (título, categoria, responsável, especificações)..." class="flex-1 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 placeholder-gray-400">
+            <button id="global-search-clear" class="hidden text-xs text-gray-400 hover:text-red-600 px-2">Limpar</button>
+        </div>
+    </div>
 
     <!-- Container principal do Kanban com rolagem horizontal -->
     <main class="kanban-container p-4 lg:p-6 space-x-4">
@@ -240,10 +289,16 @@
         <!-- Coluna 1: Em análise (BG Cinza) -->
         <div class="kanban-column bg-gray-200 shadow-inner">
             <div class="kanban-column-header text-gray-700">
-                <h2 class="kanban-column-title">1. Em análise</h2>
+                <div class="flex items-center gap-2">
+                    <h2 class="kanban-column-title">1. Em análise</h2>
+                    <span class="column-count-badge bg-gray-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
                 <button class="add-card-btn text-gray-600 hover:text-gray-900 hover:bg-gray-300">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                 </button>
+            </div>
+            <div class="px-3 pb-2 pt-1">
+                <input type="text" placeholder="🔍 Filtrar cards..." class="column-filter w-full text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 placeholder-gray-400">
             </div>
             <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="1">
                 <!-- Cards serão carregados pelo JS -->
@@ -253,10 +308,21 @@
         <!-- Coluna 2: Processo (BG Azul) -->
         <div class="kanban-column bg-blue-100 shadow-inner">
             <div class="kanban-column-header text-blue-800">
-                <h2 class="kanban-column-title">2. Processo</h2>
+                <div class="flex items-center gap-2">
+                    <h2 class="kanban-column-title">2. Processo</h2>
+                    <span class="column-count-badge bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
                 <button class="add-card-btn text-blue-700 hover:text-blue-900 hover:bg-blue-200">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                 </button>
+            </div>
+            <div class="px-3 pb-2 pt-1">
+                <input type="text" placeholder="🔍 Filtrar cards..." class="column-filter w-full text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder-gray-400">
+            </div>
+            <div class="px-3 pb-2 flex items-center gap-1.5 text-xs text-blue-700">
+                <i data-lucide="gauge" class="w-3 h-3"></i>
+                <span>Limite WIP:</span>
+                <input type="number" min="0" class="wip-limit-input w-14 border border-blue-300 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder="sem limite">
             </div>
             <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="2">
                 <!-- Cards serão carregados pelo JS -->
@@ -266,10 +332,21 @@
         <!-- Coluna 3: Desenvolvendo (BG Amarelo) -->
         <div class="kanban-column bg-yellow-100 shadow-inner">
             <div class="kanban-column-header text-yellow-800">
-                <h2 class="kanban-column-title">3. Desenvolvendo</h2>
+                <div class="flex items-center gap-2">
+                    <h2 class="kanban-column-title">3. Desenvolvendo</h2>
+                    <span class="column-count-badge bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
                 <button class="add-card-btn text-yellow-700 hover:text-yellow-900 hover:bg-yellow-200">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                 </button>
+            </div>
+            <div class="px-3 pb-2 pt-1">
+                <input type="text" placeholder="🔍 Filtrar cards..." class="column-filter w-full text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-yellow-400 placeholder-gray-400">
+            </div>
+            <div class="px-3 pb-2 flex items-center gap-1.5 text-xs text-yellow-800">
+                <i data-lucide="gauge" class="w-3 h-3"></i>
+                <span>Limite WIP:</span>
+                <input type="number" min="0" class="wip-limit-input w-14 border border-yellow-400 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-yellow-500" placeholder="sem limite">
             </div>
             <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="3">
                 <!-- Cards serão carregados pelo JS -->
@@ -279,10 +356,16 @@
         <!-- Coluna 4: Concluído (BG Verde) -->
         <div class="kanban-column bg-green-100 shadow-inner">
             <div class="kanban-column-header text-green-800">
-                <h2 class="kanban-column-title">4. Concluído</h2>
+                <div class="flex items-center gap-2">
+                    <h2 class="kanban-column-title">4. Concluído</h2>
+                    <span class="column-count-badge bg-green-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                </div>
                 <button class="add-card-btn text-green-700 hover:text-green-900 hover:bg-green-200">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                 </button>
+            </div>
+            <div class="px-3 pb-2 pt-1">
+                <input type="text" placeholder="🔍 Filtrar cards..." class="column-filter w-full text-xs border border-gray-300 rounded-md px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-green-400 placeholder-gray-400">
             </div>
             <div class="kanban-cards p-4 space-y-4 h-full" data-column-id="4">
                 <!-- Cards serão carregados pelo JS -->
@@ -295,12 +378,20 @@
     <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 modal-hidden"></div>
 
     <!-- Modal de Relatório -->
-    <div id="report-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl bg-white rounded-lg shadow-xl z-50 p-6 modal-hidden">
+    <div id="report-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-6xl bg-white rounded-lg shadow-xl z-50 p-6 modal-hidden">
         <div class="flex justify-between items-center mb-6">
             <h3 class="text-2xl font-bold text-gray-800">Relatório do Kanban</h3>
             <button id="report-close" class="text-gray-500 hover:text-gray-800">
                 <i data-lucide="x" class="w-6 h-6"></i>
             </button>
+        </div>
+
+        <!-- Configuração de Valor/Hora -->
+        <div class="flex items-center gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <i data-lucide="circle-dollar-sign" class="w-4 h-4 text-amber-700 shrink-0"></i>
+            <label for="report-hourly-rate" class="text-sm font-medium text-amber-800 whitespace-nowrap">Valor por hora (R$):</label>
+            <input type="number" id="report-hourly-rate" min="0" step="0.01" placeholder="Ex: 80.00" class="w-32 border border-amber-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-amber-400">
+            <span class="text-xs text-amber-600">usado para calcular o valor faturado abaixo</span>
         </div>
 
         <!-- Estatísticas Gerais -->
@@ -321,6 +412,22 @@
                 <div class="stat-value" id="overdue-count">0</div>
                 <div class="stat-label">Atrasadas</div>
             </div>
+            <div class="stat-box">
+                <div class="stat-value" id="total-horas-trabalhadas">0h</div>
+                <div class="stat-label">Horas em Tarefas</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="total-horas-jornada">0h</div>
+                <div class="stat-label">Horas de Jornada</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value text-green-700" id="total-valor-faturado">R$ 0,00</div>
+                <div class="stat-label">Valor Faturado (Jornada)</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="tempo-medio-tarefa">0h</div>
+                <div class="stat-label">Tempo Médio/Tarefa</div>
+            </div>
         </div>
 
         <!-- Gráfico de Distribuição por Coluna -->
@@ -335,24 +442,47 @@
             <div id="priority-distribution"></div>
         </div>
 
+        <!-- Gráfico de Categoria -->
+        <div class="report-chart">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">Distribuição por Categoria</h4>
+            <div id="categoria-distribution"></div>
+        </div>
+
+        <!-- Gráfico de Horas por Responsável -->
+        <div class="report-chart">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">⏱ Horas Trabalhadas por Responsável</h4>
+            <div id="horas-distribution"></div>
+        </div>
+
+        <!-- Gráfico de Jornada de Trabalho -->
+        <div class="report-chart">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4">📅 Jornada de Trabalho (Últimos 14 dias)</h4>
+            <div id="jornada-distribution"></div>
+        </div>
+
         <!-- Tabela Detalhada -->
         <div class="report-chart">
             <h4 class="text-lg font-semibold text-gray-800 mb-4">Detalhes de Todas as Tarefas</h4>
-            <table class="report-table">
-                <thead>
-                    <tr>
-                        <th>Tarefa</th>
-                        <th>Status</th>
-                        <th>Prioridade</th>
-                        <th>Prazo</th>
-                        <th>Responsável</th>
-                        <th>Categoria</th>
-                    </tr>
-                </thead>
-                <tbody id="report-table-body">
-                    <!-- Linhas preenchidas por JS -->
-                </tbody>
-            </table>
+            <div class="report-table-wrap">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>Tarefa</th>
+                            <th>Status</th>
+                            <th>Prioridade</th>
+                            <th>Prazo</th>
+                            <th>Responsável</th>
+                            <th>Categoria</th>
+                            <th>Horas Trab.</th>
+                            <th>Estimado</th>
+                            <th>Valor (R$)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-table-body">
+                        <!-- Linhas preenchidas por JS -->
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Botão Fechar -->
@@ -413,9 +543,39 @@
                 <input type="text" id="modal-card-responsavel" placeholder="Ex: João Silva" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
             </div>
 
+            <!-- NOVO: Horas estimadas e tempo trabalhado (cronômetro automático) -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="modal-card-horas-estimadas" class="block text-sm font-medium text-gray-700">Horas Estimadas</label>
+                    <input type="number" id="modal-card-horas-estimadas" min="0" step="0.5" placeholder="Ex: 4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Tempo Trabalhado</label>
+                    <div id="modal-tempo-trabalhado" class="mt-1 flex items-center h-[38px] px-2 text-sm font-semibold text-gray-700 bg-gray-50 border border-gray-200 rounded-md">0h 0m</div>
+                </div>
+            </div>
+            <div id="modal-tempo-actions" class="hidden flex justify-end -mt-2">
+                <button type="button" id="modal-reset-time" class="text-xs text-gray-400 hover:text-red-600 flex items-center gap-1">
+                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Resetar tempo trabalhado
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 -mt-2">⏱ O tempo é contabilizado automaticamente enquanto a tarefa está em "Processo" ou "Desenvolvendo".</p>
+
             <div>
                 <label for="modal-card-categoria" class="block text-sm font-medium text-gray-700">Categoria</label>
                 <input type="text" id="modal-card-categoria" placeholder="Ex: Backend, Frontend, Bug" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 text-sm">
+            </div>
+
+            <!-- NOVO: Checklist / Subtarefas -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Checklist / Subtarefas</label>
+                <div id="modal-checklist-items" class="space-y-1 mb-2 max-h-36 overflow-y-auto"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="modal-checklist-new-item" placeholder="Adicionar item e pressionar Enter..." class="flex-1 border border-gray-300 rounded-md px-2 py-1 text-sm">
+                    <button type="button" id="modal-checklist-add-btn" class="px-3 py-1 text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 rounded-md shadow-sm transition-colors">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Seletor de Cores -->
@@ -453,6 +613,73 @@
         </form>
     </div>
 
+    <!-- Modal de Jornada de Trabalho -->
+    <div id="journal-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-lg shadow-xl z-50 p-6 modal-hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold flex items-center gap-2 text-gray-800">
+                <i data-lucide="clock" class="w-5 h-5 text-teal-600"></i> Jornada de Trabalho
+            </h3>
+            <button id="journal-close" class="text-gray-500 hover:text-gray-800">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <div id="journal-status-box" class="rounded-lg p-4 mb-4 bg-gray-50 border border-gray-200 text-center">
+            <div id="journal-status-text" class="text-sm text-gray-600 mb-1">Jornada não iniciada hoje</div>
+            <div id="journal-live-timer" class="text-3xl font-bold text-gray-800 font-mono">00:00:00</div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="stat-box !p-3">
+                <div class="stat-value text-lg" id="journal-today-total">0h 0m</div>
+                <div class="stat-label">Total Hoje</div>
+            </div>
+            <div class="stat-box !p-3">
+                <div class="stat-value text-lg" id="journal-week-total">0h 0m</div>
+                <div class="stat-label">Total na Semana</div>
+            </div>
+        </div>
+
+        <div class="flex gap-2 mb-4">
+            <button type="button" id="journal-start-btn" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-md shadow-sm transition-colors flex items-center justify-center gap-2">
+                <i data-lucide="play" class="w-4 h-4"></i> Iniciar Jornada
+            </button>
+            <button type="button" id="journal-stop-btn" class="hidden flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors flex items-center justify-center gap-2">
+                <i data-lucide="square" class="w-4 h-4"></i> Parar Jornada
+            </button>
+        </div>
+
+        <div>
+            <h4 class="text-sm font-semibold text-gray-700 mb-2">Histórico (últimos 14 dias)</h4>
+            <div id="journal-history" class="space-y-1 max-h-48 overflow-y-auto text-sm">
+                <!-- preenchido via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Histórico de Atividades -->
+    <div id="history-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-white rounded-lg shadow-xl z-50 p-6 modal-hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-semibold flex items-center gap-2 text-gray-800">
+                <i data-lucide="history" class="w-5 h-5 text-slate-600"></i> Histórico de Atividades
+            </h3>
+            <button id="history-close" class="text-gray-500 hover:text-gray-800">
+                <i data-lucide="x" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <div class="flex items-center gap-2 mb-3">
+            <input type="text" id="history-search" placeholder="🔍 Filtrar por tarefa, responsável ou tipo..." class="flex-1 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+            <button id="history-clear-btn" class="px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 rounded-md transition-colors flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-3 h-3"></i> Limpar
+            </button>
+        </div>
+
+        <div id="history-list" class="space-y-1 max-h-[60vh] overflow-y-auto text-sm">
+            <!-- preenchido via JS -->
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Inicializa ícones do Lucide
@@ -460,8 +687,9 @@
 
             const columns = document.querySelectorAll('.kanban-cards');
             const addCardButtons = document.querySelectorAll('.add-card-btn');
-            const saveButton = document.getElementById('save-button');
-            const API_BASE = 'http://localhost:3663';
+            const exportButton = document.getElementById('export-button');
+            const importButton = document.getElementById('import-button');
+            const importFileInput = document.getElementById('import-file-input');
             
             // Elementos do Modal
             const modal = document.getElementById('card-modal');
@@ -483,29 +711,23 @@
             const modalCardNecessidade = document.getElementById('modal-card-necessidade');
             const modalCardCategoria = document.getElementById('modal-card-categoria');
             const modalCardResponsavel = document.getElementById('modal-card-responsavel'); // NOVO: Responsável
+            const modalCardHorasEstimadas = document.getElementById('modal-card-horas-estimadas'); // NOVO: Horas estimadas
+            const modalTempoTrabalhado = document.getElementById('modal-tempo-trabalhado'); // NOVO: Tempo trabalhado (somente leitura)
+            const modalTempoActions = document.getElementById('modal-tempo-actions');
+            const modalResetTime = document.getElementById('modal-reset-time');
+            const modalChecklistItems = document.getElementById('modal-checklist-items'); // NOVO: Checklist
+            const modalChecklistNewItem = document.getElementById('modal-checklist-new-item');
+            const modalChecklistAddBtn = document.getElementById('modal-checklist-add-btn');
 
             let draggedCard = null;
+            let dragSourceColumn = null;
             let currentEditingCard = null;
             let currentColumnEl = null;
-            let isDirty = false; // Rastreia alterações não salvas
+            let currentChecklist = []; // NOVO: Checklist da tarefa sendo editada/criada
 
             // --- Gerenciamento de Estado (Salvar/Carregar) ---
 
-            function setDirty(state = true) {
-                isDirty = state;
-                if (isDirty) {
-                    saveButton.classList.add('animate-pulse', 'bg-red-600', 'hover:bg-red-700');
-                    saveButton.querySelector('span').textContent = 'Salvar Pendente';
-                } else {
-                    saveButton.classList.remove('animate-pulse', 'bg-red-600', 'hover:bg-red-700');
-                    saveButton.querySelector('span').textContent = 'Salvo!';
-                    setTimeout(() => {
-                        saveButton.querySelector('span').textContent = 'Salvar Alterações';
-                    }, 2000);
-                }
-            }
-
-            async function saveStateToLocalStorage() {
+            function collectState() {
                 const state = [];
                 columns.forEach(column => {
                     const columnId = column.dataset.columnId;
@@ -517,114 +739,310 @@
                             prazo: card.dataset.prazo,
                             necessidade: card.dataset.necessidade,
                             categoria: card.dataset.categoria,
-                            responsavel: card.dataset.responsavel, // NOVO CAMPO SALVO
+                            responsavel: card.dataset.responsavel,
                             colorClass: card.dataset.colorClass,
+                            horasEstimadas: card.dataset.horasEstimadas || '',
+                            trackedSeconds: card.dataset.trackedSeconds || '0',
+                            trackingStart: card.dataset.trackingStart || '',
+                            dataInicio: card.dataset.dataInicio || '',
+                            dataConclusao: card.dataset.dataConclusao || '',
+                            checklist: card.dataset.checklist || '[]',
                             column: columnId,
-                            order: index // Salva a ordem
+                            order: index
                         });
                     });
                 });
+                return state;
+            }
 
-                const json = JSON.stringify(state);
+            // ---- Salvamento Automático em Arquivo (File System Access API) ----
+            let fileHandle = null;
 
-                // Tenta salvar no servidor; em caso de erro, salva no localStorage como fallback
-                try {
-                    const res = await fetch(`${API_BASE}/state`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: json
-                    });
-                    if (!res.ok) throw new Error('Falha ao salvar no servidor');
-                    setDirty(false);
-                    console.log('Estado salvo no servidor.');
-                } catch (err) {
-                    localStorage.setItem('kanbanState', json);
-                    setDirty(false);
-                    console.log('Servidor indisponível. Estado salvo localmente.');
+            function _openDB() {
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open('KanbanAppDB', 1);
+                    req.onupgradeneeded = e => e.target.result.createObjectStore('state');
+                    req.onsuccess = e => resolve(e.target.result);
+                    req.onerror = () => reject();
+                });
+            }
+
+            function dbGet(key) {
+                return _openDB().then(db => new Promise(resolve => {
+                    const tx = db.transaction('state', 'readonly');
+                    const req = tx.objectStore('state').get(key);
+                    req.onsuccess = e => resolve(e.target.result !== undefined ? e.target.result : null);
+                    req.onerror = () => resolve(null);
+                }));
+            }
+
+            function dbPut(key, value) {
+                return _openDB().then(db => new Promise(resolve => {
+                    const tx = db.transaction('state', 'readwrite');
+                    tx.objectStore('state').put(value, key);
+                    tx.oncomplete = resolve;
+                    tx.onerror = resolve;
+                }));
+            }
+
+            let toastTimeout = null;
+            function showSaveToast(msg) {
+                const toast = document.getElementById('save-toast');
+                if (!toast) return;
+                const msgEl = document.getElementById('save-toast-msg');
+                if (msgEl) msgEl.textContent = msg || 'Salvo automaticamente';
+                toast.style.opacity = '1';
+                clearTimeout(toastTimeout);
+                toastTimeout = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+            }
+
+            function updateSelectFileButton() {
+                const btn = document.getElementById('select-file-button');
+                if (!btn) return;
+                const span = btn.querySelector('span');
+                if (fileHandle) {
+                    btn.title = 'Salvando em: ' + fileHandle.name;
+                    btn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                    btn.classList.add('bg-purple-800', 'hover:bg-purple-900');
+                    if (span) span.textContent = '✓ ' + fileHandle.name;
+                } else {
+                    btn.title = 'Selecionar arquivo destino para salvamento automático';
+                    btn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                    btn.classList.remove('bg-purple-800', 'hover:bg-purple-900');
+                    if (span) span.textContent = 'Selecionar Destino';
                 }
             }
 
-            async function loadStateFromLocalStorage() {
-                // Primeiro tenta carregar do servidor
+            async function writeToFileHandle(json) {
                 try {
-                    const res = await fetch(`${API_BASE}/state`);
-                    if (res.ok) {
-                        const serverState = await res.json();
-                        if (serverState && serverState.length > 0) {
-                            columns.forEach(col => col.innerHTML = '');
-                            // Ordena e insere
-                            serverState.sort((a, b) => a.order - b.order);
-                            serverState.forEach(cardData => {
-                                const columnEl = document.querySelector(`.kanban-cards[data-column-id="${cardData.column}"]`);
-                                if (columnEl) createNewCard(cardData, columnEl);
-                            });
-                            // após carregar tudo, ordena cada coluna por data e atualiza scroll
-                            columns.forEach(col => {
-                                sortColumnByDate(col);
-                                updateColumnScrollState(col);
-                            });
-                            console.log('Estado carregado do servidor.');
-                            return;
-                        }
-                    }
+                    let perm = await fileHandle.queryPermission({ mode: 'readwrite' });
+                    if (perm === 'prompt') perm = await fileHandle.requestPermission({ mode: 'readwrite' });
+                    if (perm !== 'granted') return;
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(json);
+                    await writable.close();
+                    showSaveToast('Salvo automaticamente ✓');
                 } catch (e) {
-                    console.warn('Não foi possível conectar ao servidor para carregar estado:', e);
+                    console.error('Erro ao salvar arquivo:', e);
                 }
+            }
 
-                // Fallback para localStorage
-                const state = JSON.parse(localStorage.getItem('kanbanState'));
-                if (!state || state.length === 0) {
-                    console.log('Nenhum estado salvo encontrado. Carregando quadro vazio.');
+            function autoSave() {
+                const json = JSON.stringify(collectState(), null, 2);
+                localStorage.setItem('kanbanState', json);
+                if (fileHandle) {
+                    writeToFileHandle(json);
+                } else {
+                    showSaveToast('Salvo automaticamente');
+                }
+            }
+
+            async function selectSaveFile() {
+                if (!('showSaveFilePicker' in window)) {
+                    alert('Seu navegador não suporta este recurso.\nUse o Google Chrome ou Microsoft Edge atualizado.');
                     return;
                 }
-
-                // Limpa todas as colunas
-                columns.forEach(col => col.innerHTML = '');
-                
-                // Ordena os cards pela ordem salva
-                state.sort((a, b) => a.order - b.order);
-
-                // Cria e insere os cards
-                state.forEach(cardData => {
-                    const columnEl = document.querySelector(`.kanban-cards[data-column-id="${cardData.column}"]`);
-                    if (columnEl) {
-                        createNewCard(cardData, columnEl);
-                    }
-                });
-                // após carregar tudo, ordena cada coluna por data e atualiza scroll
-                columns.forEach(col => {
-                    sortColumnByDate(col);
-                    updateColumnScrollState(col);
-                });
-                console.log('Estado carregado do localStorage.');
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: 'kanban.json',
+                        types: [{ description: 'Arquivo JSON', accept: { 'application/json': ['.json'] } }]
+                    });
+                    fileHandle = handle;
+                    await dbPut('fileHandle', handle);
+                    updateSelectFileButton();
+                    showSaveToast('Destino configurado: ' + handle.name);
+                } catch (e) {
+                    // usuário cancelou
+                }
             }
 
-            // // Opcional: Função para carregar dados de exemplo se o localStorage estiver vazio
-            // function loadInitialExampleData() {
-            //     const exampleData = [
-            //         { id: 'c1', title: '[Fase 3.1] API Conexões (Admin)', specs: '...', prazo: '2025-11-20', necessidade: 'Média', categoria: 'Backend', responsavel: 'Jane Doe', colorClass: 'bg-white', column: '1', order: 0 },
-            //         { id: 'c9', title: '[Fase 1.1] Implementar Middleware', specs: '...', prazo: '', necessidade: 'Crítica', categoria: 'Backend', responsavel: 'John Smith', colorClass: 'bg-purple-100', column: '2', order: 0 }
-            //     ];
-            //     localStorage.setItem('kanbanState', JSON.stringify(exampleData));
-            //     loadStateFromLocalStorage();
-            // }
+            function exportJSON() {
+                const state = collectState();
+                const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `kanban-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
 
-            // Listener do botão Salvar
-            saveButton.addEventListener('click', saveStateToLocalStorage);
+            function loadState(state) {
+                columns.forEach(col => col.innerHTML = '');
+                if (!state || state.length === 0) return;
+                state.sort((a, b) => (a.order || 0) - (b.order || 0));
+                state.forEach(cardData => {
+                    const columnEl = document.querySelector(`.kanban-cards[data-column-id="${cardData.column}"]`);
+                    if (columnEl) createNewCard(cardData, columnEl);
+                });
+                columns.forEach(col => {
+                    sortColumnByDate(col);
+                    updateColumnCount(col);
+                });
+            }
 
-            // Listener para bloquear fechamento da página
-            window.addEventListener('beforeunload', (e) => {
-                if (isDirty) {
-                    e.preventDefault();
-                    e.returnValue = ''; // Necessário para a maioria dos navegadores
-                }
+            function loadFromLocalStorage() {
+                const raw = localStorage.getItem('kanbanState');
+                loadState(raw ? JSON.parse(raw) : []);
+            }
+
+            // Listener do botão Exportar JSON
+            exportButton.addEventListener('click', exportJSON);
+
+            // Listener para Importar JSON
+            importButton.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const state = JSON.parse(ev.target.result);
+                        loadState(state);
+                        autoSave();
+                        alert('Dados importados com sucesso!');
+                    } catch {
+                        alert('Erro ao importar: arquivo JSON inválido.');
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
             });
 
+
+            // --- Busca em cards (usada pelo filtro por coluna e pela busca global) ---
+            function cardMatches(card, query) {
+                if (!query) return true;
+                const matchText = [
+                    card.dataset.title || '',
+                    card.dataset.categoria || '',
+                    card.dataset.responsavel || '',
+                    card.dataset.specs || ''
+                ].join(' ').toLowerCase();
+                return matchText.includes(query);
+            }
+
+            // --- Limite WIP (Work In Progress) por coluna ---
+            const WIP_LIMITS_KEY = 'kanbanWipLimits';
+            const WIP_BADGE_COLORS = { '2': 'bg-blue-500', '3': 'bg-yellow-500' };
+            const COLUMN_NAMES_SHARED = { '1': 'Em Análise', '2': 'Processo', '3': 'Desenvolvendo', '4': 'Concluído' };
+
+            function loadWipLimits() {
+                try {
+                    return JSON.parse(localStorage.getItem(WIP_LIMITS_KEY)) || {};
+                } catch {
+                    return {};
+                }
+            }
+
+            function saveWipLimits(limits) {
+                localStorage.setItem(WIP_LIMITS_KEY, JSON.stringify(limits));
+            }
+
+            // --- Cronômetro de Horas por Tarefa ---
+            // Conta automaticamente o tempo enquanto o card está nas colunas "Processo" (2) e "Desenvolvendo" (3).
+            const TRACKED_COLUMNS = ['2', '3'];
+
+            function getCardDataset(card) {
+                return {
+                    id: card.dataset.cardId,
+                    title: card.dataset.title,
+                    specs: card.dataset.specs,
+                    prazo: card.dataset.prazo,
+                    necessidade: card.dataset.necessidade,
+                    categoria: card.dataset.categoria,
+                    responsavel: card.dataset.responsavel,
+                    colorClass: card.dataset.colorClass,
+                    horasEstimadas: card.dataset.horasEstimadas || '',
+                    trackedSeconds: card.dataset.trackedSeconds || '0',
+                    trackingStart: card.dataset.trackingStart || '',
+                    dataInicio: card.dataset.dataInicio || '',
+                    dataConclusao: card.dataset.dataConclusao || '',
+                    checklist: card.dataset.checklist || '[]'
+                };
+            }
+
+            function formatHoursMinutes(totalSeconds) {
+                totalSeconds = Math.max(0, Math.floor(totalSeconds || 0));
+                const h = Math.floor(totalSeconds / 3600);
+                const m = Math.floor((totalSeconds % 3600) / 60);
+                if (h === 0 && m === 0) return '0m';
+                return (h > 0 ? `${h}h ` : '') + `${m}m`;
+            }
+
+            // --- Valor por hora (faturamento) ---
+            const HOURLY_RATE_KEY = 'kanbanHourlyRate';
+
+            function getHourlyRate() {
+                const v = parseFloat(localStorage.getItem(HOURLY_RATE_KEY));
+                return isNaN(v) ? 0 : v;
+            }
+
+            function setHourlyRate(value) {
+                const v = parseFloat(value);
+                if (isNaN(v) || v <= 0) {
+                    localStorage.removeItem(HOURLY_RATE_KEY);
+                } else {
+                    localStorage.setItem(HOURLY_RATE_KEY, String(v));
+                }
+            }
+
+            function formatCurrency(value) {
+                return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            }
+
+            function secondsToValue(seconds, rate) {
+                return (seconds / 3600) * rate;
+            }
+
+            function getCardElapsedSeconds(card) {
+                const base = parseInt(card.dataset.trackedSeconds || '0', 10);
+                if (card.dataset.trackingStart) {
+                    const start = parseInt(card.dataset.trackingStart, 10);
+                    return base + Math.max(0, Math.floor((Date.now() - start) / 1000));
+                }
+                return base;
+            }
+
+            // Chamado quando um card muda de coluna: liga/desliga o cronômetro conforme a coluna de destino
+            function handleCardColumnTransition(card, fromColumnId, toColumnId) {
+                const now = Date.now();
+                const wasTracking = TRACKED_COLUMNS.includes(fromColumnId);
+                const willTrack = TRACKED_COLUMNS.includes(toColumnId);
+
+                if (wasTracking && card.dataset.trackingStart) {
+                    const start = parseInt(card.dataset.trackingStart, 10);
+                    const elapsed = Math.max(0, Math.floor((now - start) / 1000));
+                    card.dataset.trackedSeconds = String(parseInt(card.dataset.trackedSeconds || '0', 10) + elapsed);
+                    card.dataset.trackingStart = '';
+                }
+
+                if (willTrack) {
+                    card.dataset.trackingStart = String(now);
+                    if (!card.dataset.dataInicio) card.dataset.dataInicio = new Date().toISOString();
+                }
+
+                if (toColumnId === '4') {
+                    card.dataset.dataConclusao = new Date().toISOString();
+                } else if (fromColumnId === '4') {
+                    card.dataset.dataConclusao = '';
+                }
+            }
+
+            // Atualiza periodicamente a exibição dos cards que estão contabilizando tempo
+            setInterval(() => {
+                document.querySelectorAll('.kanban-card').forEach(card => {
+                    if (card.dataset.trackingStart) {
+                        renderCardContent(card, getCardDataset(card));
+                    }
+                });
+            }, 60000);
 
             // --- Funções de Drag and Drop ---
             function attachCardListeners(card) {
                 card.addEventListener('dragstart', (e) => {
                     draggedCard = card;
+                    dragSourceColumn = card.closest('.kanban-cards');
                     setTimeout(() => card.classList.add('dragging'), 0);
                 });
 
@@ -662,10 +1080,25 @@
                 column.addEventListener('drop', (e) => {
                     e.preventDefault();
                     column.classList.remove('drag-over');
-                    setDirty(true); // Marcar como "sujo" ao mover um card
-                    // Após soltar, reordena por data e atualiza scroll
+
+                    const toColumnId = column.dataset.columnId;
+                    const fromColumnId = dragSourceColumn ? dragSourceColumn.dataset.columnId : toColumnId;
+                    if (draggedCard && fromColumnId !== toColumnId) {
+                        handleCardColumnTransition(draggedCard, fromColumnId, toColumnId);
+                        renderCardContent(draggedCard, getCardDataset(draggedCard));
+                        // NOVO: Registra a movimentação no histórico de atividades
+                        const fromName = COLUMN_NAMES_SHARED[fromColumnId] || fromColumnId;
+                        const toName = COLUMN_NAMES_SHARED[toColumnId] || toColumnId;
+                        logActivity('moved', draggedCard.dataset.title, `${fromName} → ${toName}`);
+                    }
+
                     sortColumnByDate(column);
-                    updateColumnScrollState(column);
+                    updateColumnCount(column);
+                    if (dragSourceColumn && dragSourceColumn !== column) {
+                        updateColumnCount(dragSourceColumn);
+                    }
+                    dragSourceColumn = null;
+                    autoSave();
                 });
             });
 
@@ -683,6 +1116,64 @@
             }
 
             // --- Funções do Modal ---
+
+            // NOVO: Checklist / Subtarefas
+            function parseChecklist(raw) {
+                try {
+                    const parsed = raw ? JSON.parse(raw) : [];
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                    return [];
+                }
+            }
+
+            function renderChecklistItems() {
+                if (currentChecklist.length === 0) {
+                    modalChecklistItems.innerHTML = '<p class="text-xs text-gray-400">Nenhum item ainda.</p>';
+                    return;
+                }
+                modalChecklistItems.innerHTML = currentChecklist.map((item, idx) => `
+                    <div class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" data-idx="${idx}" class="checklist-item-toggle" ${item.done ? 'checked' : ''}>
+                        <span class="flex-1 ${item.done ? 'line-through text-gray-400' : ''}">${item.text}</span>
+                        <button type="button" data-idx="${idx}" class="checklist-item-remove text-gray-400 hover:text-red-600">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                `).join('');
+                lucide.createIcons({ nodes: [modalChecklistItems] });
+            }
+
+            modalChecklistItems.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.checklist-item-remove');
+                if (!removeBtn) return;
+                currentChecklist.splice(parseInt(removeBtn.dataset.idx, 10), 1);
+                renderChecklistItems();
+            });
+
+            modalChecklistItems.addEventListener('change', (e) => {
+                if (!e.target.classList.contains('checklist-item-toggle')) return;
+                const idx = parseInt(e.target.dataset.idx, 10);
+                currentChecklist[idx].done = e.target.checked;
+                renderChecklistItems();
+            });
+
+            function addChecklistItem() {
+                const text = modalChecklistNewItem.value.trim();
+                if (!text) return;
+                currentChecklist.push({ text, done: false });
+                modalChecklistNewItem.value = '';
+                renderChecklistItems();
+                modalChecklistNewItem.focus();
+            }
+
+            modalChecklistAddBtn.addEventListener('click', addChecklistItem);
+            modalChecklistNewItem.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addChecklistItem();
+                }
+            });
 
             // Seletor de cor no modal
             colorSwatchesContainer.addEventListener('click', (e) => {
@@ -731,14 +1222,33 @@
                     modalCardResponsavel.value = card.dataset.responsavel || ''; // NOVO: Carrega Responsável
                     setSelectedColor(card.dataset.colorClass);
 
+                    // NOVO: Horas estimadas e tempo trabalhado
+                    modalCardHorasEstimadas.value = card.dataset.horasEstimadas || '';
+                    const elapsed = getCardElapsedSeconds(card);
+                    modalTempoTrabalhado.textContent = formatHoursMinutes(elapsed) + (card.dataset.trackingStart ? ' (cronômetro ativo)' : '');
+                    modalTempoActions.classList.toggle('hidden', elapsed === 0);
+
+                    // NOVO: Carrega o checklist da tarefa
+                    currentChecklist = parseChecklist(card.dataset.checklist);
+                    renderChecklistItems();
+
                 } else {
                     // Modo Criação
                     modalTitle.textContent = 'Criar Nova Tarefa';
                     modalDelete.classList.add('hidden');
                     modalDuplicate.classList.add('hidden');
-                    modalForm.reset(); 
+                    modalForm.reset();
                     modalCardId.value = `card-${new Date().getTime()}`;
                     setSelectedColor('bg-white'); // Padrão
+
+                    // NOVO: Horas estimadas e tempo trabalhado (zerados na criação)
+                    modalCardHorasEstimadas.value = '';
+                    modalTempoTrabalhado.textContent = '0h 0m';
+                    modalTempoActions.classList.add('hidden');
+
+                    // NOVO: Checklist vazio na criação
+                    currentChecklist = [];
+                    renderChecklistItems();
                 }
 
                 modal.classList.remove('modal-hidden');
@@ -755,12 +1265,31 @@
                 modalOverlay.classList.remove('modal-visible');
                 currentEditingCard = null;
                 currentColumnEl = null;
+                currentChecklist = [];
                 modalForm.reset();
             }
 
             modalClose.addEventListener('click', closeModal);
             modalCancel.addEventListener('click', closeModal);
-            modalOverlay.addEventListener('click', closeModal);
+            modalOverlay.addEventListener('click', () => {
+                if (!modal.classList.contains('modal-hidden')) closeModal();
+                if (!reportModal.classList.contains('modal-hidden')) closeReportModal();
+                if (!journalModal.classList.contains('modal-hidden')) closeJournalModal();
+                if (!historyModal.classList.contains('modal-hidden')) closeHistoryModal();
+            });
+
+            modalResetTime.addEventListener('click', () => {
+                if (!currentEditingCard) return;
+                if (!confirm('Zerar o tempo trabalhado registrado nesta tarefa?')) return;
+                currentEditingCard.dataset.trackedSeconds = '0';
+                if (currentEditingCard.dataset.trackingStart) {
+                    currentEditingCard.dataset.trackingStart = String(Date.now());
+                }
+                renderCardContent(currentEditingCard, getCardDataset(currentEditingCard));
+                modalTempoTrabalhado.textContent = formatHoursMinutes(getCardElapsedSeconds(currentEditingCard)) + (currentEditingCard.dataset.trackingStart ? ' (cronômetro ativo)' : '');
+                modalTempoActions.classList.add('hidden');
+                autoSave();
+            });
 
             // Listener para Salvar
             modalForm.addEventListener('submit', (e) => {
@@ -774,30 +1303,35 @@
                     necessidade: modalCardNecessidade.value,
                     categoria: modalCardCategoria.value,
                     responsavel: modalCardResponsavel.value, // NOVO: Salva Responsável
-                    colorClass: getSelectedColor()
+                    colorClass: getSelectedColor(),
+                    horasEstimadas: modalCardHorasEstimadas.value, // NOVO: Horas estimadas
+                    trackedSeconds: currentEditingCard ? currentEditingCard.dataset.trackedSeconds : '0',
+                    trackingStart: currentEditingCard ? currentEditingCard.dataset.trackingStart : '',
+                    dataInicio: currentEditingCard ? currentEditingCard.dataset.dataInicio : '',
+                    dataConclusao: currentEditingCard ? currentEditingCard.dataset.dataConclusao : '',
+                    checklist: JSON.stringify(currentChecklist) // NOVO: Checklist
                     // A coluna será definida no momento da criação/edição
                 };
 
                 if (currentEditingCard) {
-                    // Atualiza o card existente
+                    logActivity('edited', formData.title); // NOVO: Registra edição no histórico
                     updateCard(currentEditingCard, formData);
                 } else {
-                    // Cria um novo card
-                    createNewCard(formData, currentColumnEl);
+                    createNewCard(formData, currentColumnEl, 'created');
                 }
 
-                setDirty(true);
+                autoSave();
                 closeModal();
             });
 
             // Listener para Deletar
             modalDelete.addEventListener('click', () => {
                 if (currentEditingCard) {
-                    // guarda referência da coluna antes de remover o card
                     const col = currentEditingCard.closest('.kanban-cards');
+                    logActivity('deleted', currentEditingCard.dataset.title); // NOVO: Registra exclusão no histórico
                     currentEditingCard.remove();
-                    setDirty(true);
-                    if (col) updateColumnScrollState(col);
+                    if (col) updateColumnCount(col);
+                    autoSave();
                     closeModal();
                 }
             });
@@ -813,19 +1347,23 @@
                         necessidade: modalCardNecessidade.value,
                         categoria: modalCardCategoria.value,
                         responsavel: modalCardResponsavel.value, // NOVO: Duplica Responsável
-                        colorClass: getSelectedColor()
+                        colorClass: getSelectedColor(),
+                        horasEstimadas: modalCardHorasEstimadas.value, // NOVO: Duplica horas estimadas
+                        trackedSeconds: '0', // A cópia começa o cronômetro zerado
+                        trackingStart: '',
+                        dataInicio: '',
+                        dataConclusao: '',
+                        checklist: JSON.stringify(currentChecklist) // NOVO: Duplica checklist
                     };
                     
                     // Pega a coluna do card que estamos editando
                     const column = currentEditingCard.closest('.kanban-cards');
-                    createNewCard(formData, column);
-                    
-                    setDirty(true);
-                    // atualiza scroll e ordenação
+                    createNewCard(formData, column, 'duplicated');
                     if (column) {
                         sortColumnByDate(column);
-                        updateColumnScrollState(column);
+                        updateColumnCount(column);
                     }
+                    autoSave();
                     closeModal();
                 }
             });
@@ -853,7 +1391,13 @@
                 card.dataset.categoria = data.categoria;
                 card.dataset.responsavel = data.responsavel; // NOVO: Atualiza data attribute
                 card.dataset.colorClass = data.colorClass || 'bg-white';
-                
+                card.dataset.horasEstimadas = data.horasEstimadas || ''; // NOVO: Horas estimadas
+                card.dataset.trackedSeconds = data.trackedSeconds || '0'; // NOVO: Segundos já contabilizados
+                card.dataset.trackingStart = data.trackingStart || ''; // NOVO: Timestamp de início do cronômetro (vazio = parado)
+                card.dataset.dataInicio = data.dataInicio || '';
+                card.dataset.dataConclusao = data.dataConclusao || '';
+                card.dataset.checklist = data.checklist || '[]'; // NOVO: Checklist
+
                 // Atualiza a cor de fundo do card
                 cardColorClasses.forEach(c => card.classList.remove(c));
                 card.classList.add(data.colorClass || 'bg-white');
@@ -897,6 +1441,46 @@
                     `;
                 }
 
+                // NOVO: Exibe horas trabalhadas (cronômetro) e horas estimadas
+                const elapsedSeconds = getCardElapsedSeconds(card);
+                const isTracking = !!card.dataset.trackingStart;
+                const estimatedHours = parseFloat(card.dataset.horasEstimadas);
+                const hasEstimate = !isNaN(estimatedHours) && estimatedHours > 0;
+                let horasInnerHtml = '';
+                if (elapsedSeconds > 0 || hasEstimate || isTracking) {
+                    const estimatedSeconds = hasEstimate ? estimatedHours * 3600 : null;
+                    const isOverEstimate = estimatedSeconds !== null && elapsedSeconds > estimatedSeconds;
+                    const timeColor = isTracking ? 'text-blue-600' : (isOverEstimate ? 'text-red-600' : 'text-gray-600');
+                    horasInnerHtml = `
+                        <div class="flex items-center justify-between text-xs ${timeColor}">
+                            <span class="flex items-center gap-1 ${isTracking ? 'font-semibold' : ''}">
+                                <i data-lucide="${isTracking ? 'timer' : 'clock'}" class="w-3 h-3"></i>
+                                ${formatHoursMinutes(elapsedSeconds)}${isTracking ? ' · ativo' : ''}
+                            </span>
+                            ${estimatedSeconds !== null ? `<span class="text-gray-400">/ ${estimatedHours}h est.</span>` : ''}
+                        </div>
+                    `;
+                }
+
+                // NOVO: Exibe progresso do checklist
+                let checklistInnerHtml = '';
+                const checklistArr = parseChecklist(card.dataset.checklist);
+                if (checklistArr.length > 0) {
+                    const doneCount = checklistArr.filter(i => i.done).length;
+                    const pct = Math.round((doneCount / checklistArr.length) * 100);
+                    checklistInnerHtml = `
+                        <div class="text-xs text-gray-600">
+                            <div class="flex items-center justify-between mb-0.5">
+                                <span class="flex items-center gap-1"><i data-lucide="list-checks" class="w-3 h-3"></i> ${doneCount}/${checklistArr.length}</span>
+                                <span class="text-gray-400">${pct}%</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-indigo-500" style="width:${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 // Atualiza o HTML interno
                 card.innerHTML = `
                     <h3 class="font-semibold text-sm mb-2">${data.title}</h3>
@@ -907,7 +1491,7 @@
                             ${data.necessidade}
                         </span>
                     </div>
-                    ${responsavelHtml ? `<div class="mt-2 border-t border-gray-200 pt-2">${responsavelHtml}</div>` : ''}
+                    ${(responsavelHtml || horasInnerHtml || checklistInnerHtml) ? `<div class="mt-2 border-t border-gray-200 pt-2 space-y-1">${responsavelHtml}${horasInnerHtml}${checklistInnerHtml}</div>` : ''}
                 `;
 
                 // Recria os ícones do Lucide dentro do card
@@ -931,52 +1515,490 @@
                 cards.forEach(c => column.appendChild(c));
             }
 
-            // Habilita/desabilita scroll por coluna quando ultrapassar 3 cards
-            function updateColumnScrollState(column) {
+            // Atualiza badge de contagem e scroll da coluna
+            function updateColumnCount(column) {
                 const count = column.querySelectorAll('.kanban-card').length;
+                const columnEl = column.closest('.kanban-column');
+                const badge = columnEl.querySelector('.column-count-badge');
+                if (badge) badge.textContent = count;
                 if (count > 3) {
                     column.classList.add('scrollable');
                 } else {
                     column.classList.remove('scrollable');
                 }
+
+                // NOVO: Verifica limite WIP (apenas colunas "Processo" e "Desenvolvendo")
+                const columnId = column.dataset.columnId;
+                const baseBadgeColor = WIP_BADGE_COLORS[columnId];
+                if (badge && baseBadgeColor) {
+                    const limit = loadWipLimits()[columnId];
+                    const exceeded = limit && count > limit;
+                    badge.classList.toggle('bg-red-600', exceeded);
+                    badge.classList.toggle('animate-pulse', exceeded);
+                    badge.classList.toggle(baseBadgeColor, !exceeded);
+                    columnEl.classList.toggle('ring-2', exceeded);
+                    columnEl.classList.toggle('ring-red-400', exceeded);
+                }
             }
 
-            function updateAllColumnsScroll() {
-                columns.forEach(col => updateColumnScrollState(col));
+            function updateAllColumnCounts() {
+                columns.forEach(col => updateColumnCount(col));
             }
 
             // Atualiza um card existente
             function updateCard(card, data) {
                 renderCardContent(card, data);
-                // Reordena a coluna do card por data e atualiza scroll
                 const column = card.closest('.kanban-cards');
                 if (column) {
                     sortColumnByDate(column);
-                    updateColumnScrollState(column);
+                    updateColumnCount(column);
                 }
             }
 
             // Cria um novo elemento de card
-            function createNewCard(data, columnEl) {
+            // logType: null/undefined para não registrar (ex: carregando estado salvo), ou 'created'/'duplicated'
+            function createNewCard(data, columnEl, logType) {
                 const newCard = document.createElement('div');
                 // As classes de cor são adicionadas pelo renderCardContent
-                newCard.className = 'kanban-card rounded-lg p-3 shadow-md cursor-move'; 
+                newCard.className = 'kanban-card rounded-lg p-3 shadow-md cursor-move';
                 newCard.draggable = true;
-                
+
                 renderCardContent(newCard, data);
-                
+
                 columnEl.appendChild(newCard);
-                
+
                 // Adiciona os listeners de drag e dblclick ao novo card
                 attachCardListeners(newCard);
 
-                // Ordena e atualiza estado de scroll da coluna
                 sortColumnByDate(columnEl);
-                updateColumnScrollState(columnEl);
+                updateColumnCount(columnEl);
+
+                // NOVO: Registra no histórico de atividades
+                if (logType) {
+                    const columnName = COLUMN_NAMES_SHARED[columnEl.dataset.columnId] || '';
+                    logActivity(logType, data.title, `Coluna: ${columnName}`);
+                }
             }
 
             // --- Carregamento Inicial ---
-            loadStateFromLocalStorage();
+            loadFromLocalStorage();
+
+            // ---- Restaurar handle do arquivo salvo (IndexedDB) ----
+            dbGet('fileHandle').then(handle => {
+                if (handle) {
+                    fileHandle = handle;
+                    updateSelectFileButton();
+                }
+            }).catch(() => {});
+
+            // ---- Filtro por coluna ----
+            const columnFilterInputs = document.querySelectorAll('.column-filter');
+            columnFilterInputs.forEach(input => {
+                input.addEventListener('input', () => {
+                    const cardsContainer = input.closest('.kanban-column').querySelector('.kanban-cards');
+                    const query = input.value.toLowerCase().trim();
+                    cardsContainer.querySelectorAll('.kanban-card').forEach(card => {
+                        card.style.display = cardMatches(card, query) ? '' : 'none';
+                    });
+                });
+            });
+
+            // ---- Busca global (em todas as colunas) ----
+            const globalSearchInput = document.getElementById('global-search');
+            const globalSearchClearBtn = document.getElementById('global-search-clear');
+
+            function applyGlobalSearch() {
+                const query = globalSearchInput.value.toLowerCase().trim();
+                globalSearchClearBtn.classList.toggle('hidden', query === '');
+                columnFilterInputs.forEach(input => {
+                    input.disabled = query !== '';
+                    input.placeholder = query !== '' ? 'Busca global ativa' : '🔍 Filtrar cards...';
+                });
+
+                if (query !== '') {
+                    document.querySelectorAll('.kanban-card').forEach(card => {
+                        card.style.display = cardMatches(card, query) ? '' : 'none';
+                    });
+                } else {
+                    // Restaura os filtros individuais de cada coluna
+                    columnFilterInputs.forEach(input => input.dispatchEvent(new Event('input')));
+                }
+            }
+
+            globalSearchInput.addEventListener('input', applyGlobalSearch);
+            globalSearchClearBtn.addEventListener('click', () => {
+                globalSearchInput.value = '';
+                applyGlobalSearch();
+                globalSearchInput.focus();
+            });
+
+            // ---- Limite WIP por coluna ----
+            document.querySelectorAll('.wip-limit-input').forEach(input => {
+                const cardsContainer = input.closest('.kanban-column').querySelector('.kanban-cards');
+                const columnId = cardsContainer.dataset.columnId;
+                const savedLimit = loadWipLimits()[columnId];
+                if (savedLimit) input.value = savedLimit;
+
+                input.addEventListener('input', () => {
+                    const limits = loadWipLimits();
+                    const v = parseInt(input.value, 10);
+                    if (!isNaN(v) && v > 0) {
+                        limits[columnId] = v;
+                    } else {
+                        delete limits[columnId];
+                    }
+                    saveWipLimits(limits);
+                    updateColumnCount(cardsContainer);
+                });
+            });
+
+            // ---- Selecionar arquivo destino ----
+            const selectFileButton = document.getElementById('select-file-button');
+            if (selectFileButton) {
+                selectFileButton.addEventListener('click', selectSaveFile);
+            }
+
+            // ============ JORNADA DE TRABALHO (HORAS DIÁRIAS) ============
+            // Contabiliza automaticamente as horas trabalhadas no dia enquanto o HTML estiver aberto.
+            const JOURNAL_KEY = 'kanbanWorkJournal';
+            const ACTIVE_SESSION_KEY = 'kanbanActiveSession';
+            const WORK_START_HOUR = 18; // a partir dessa hora, pergunta se quer iniciar a jornada do dia
+
+            function todayKey(date = new Date()) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
+            function loadJournal() {
+                try {
+                    return JSON.parse(localStorage.getItem(JOURNAL_KEY)) || {};
+                } catch {
+                    return {};
+                }
+            }
+
+            function saveJournal(journal) {
+                localStorage.setItem(JOURNAL_KEY, JSON.stringify(journal));
+            }
+
+            function loadActiveSession() {
+                try {
+                    return JSON.parse(localStorage.getItem(ACTIVE_SESSION_KEY));
+                } catch {
+                    return null;
+                }
+            }
+
+            function saveActiveSession(session) {
+                if (session) {
+                    localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(session));
+                } else {
+                    localStorage.removeItem(ACTIVE_SESSION_KEY);
+                }
+            }
+
+            function formatHMS(totalSeconds) {
+                totalSeconds = Math.max(0, Math.floor(totalSeconds || 0));
+                const h = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+                const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+                const s = String(totalSeconds % 60).padStart(2, '0');
+                return `${h}:${m}:${s}`;
+            }
+
+            function addSecondsToJournalDay(dateKey, seconds) {
+                if (seconds <= 0) return;
+                const journal = loadJournal();
+                if (!journal[dateKey]) journal[dateKey] = { totalSeconds: 0, promptedToday: false };
+                journal[dateKey].totalSeconds = (journal[dateKey].totalSeconds || 0) + seconds;
+                saveJournal(journal);
+            }
+
+            let activeSession = null; // { date, lastHeartbeat (timestamp ms) }
+            let journalTickInterval = null;
+            let journalLiveInterval = null;
+
+            // A cada 20s credita o tempo decorrido — garante que pouco tempo se perca caso o navegador feche abruptamente
+            function journalHeartbeatTick() {
+                if (!activeSession) return;
+                const now = Date.now();
+                const elapsed = Math.max(0, Math.floor((now - activeSession.lastHeartbeat) / 1000));
+                if (elapsed > 0) {
+                    addSecondsToJournalDay(activeSession.date, elapsed);
+                    activeSession.lastHeartbeat = now;
+                    saveActiveSession(activeSession);
+                }
+            }
+
+            function startJournalSession() {
+                const now = Date.now();
+                activeSession = { date: todayKey(), lastHeartbeat: now };
+                saveActiveSession(activeSession);
+
+                const journal = loadJournal();
+                if (!journal[activeSession.date]) journal[activeSession.date] = { totalSeconds: 0, promptedToday: true };
+                journal[activeSession.date].promptedToday = true;
+                saveJournal(journal);
+
+                journalTickInterval = setInterval(journalHeartbeatTick, 20000);
+                journalLiveInterval = setInterval(updateJournalLiveDisplays, 1000);
+                updateJournalUI();
+            }
+
+            function stopJournalSession() {
+                if (!activeSession) return;
+                journalHeartbeatTick();
+                clearInterval(journalTickInterval);
+                clearInterval(journalLiveInterval);
+                journalTickInterval = null;
+                journalLiveInterval = null;
+                activeSession = null;
+                saveActiveSession(null);
+                updateJournalUI();
+            }
+
+            function getTodayWorkedSeconds() {
+                const journal = loadJournal();
+                const entry = journal[todayKey()];
+                let secs = entry ? (entry.totalSeconds || 0) : 0;
+                if (activeSession) {
+                    secs += Math.max(0, Math.floor((Date.now() - activeSession.lastHeartbeat) / 1000));
+                }
+                return secs;
+            }
+
+            function getWeekWorkedSeconds() {
+                const journal = loadJournal();
+                const now = new Date();
+                let total = 0;
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - i);
+                    const key = todayKey(d);
+                    if (journal[key]) total += journal[key].totalSeconds || 0;
+                }
+                if (activeSession) {
+                    total += Math.max(0, Math.floor((Date.now() - activeSession.lastHeartbeat) / 1000));
+                }
+                return total;
+            }
+
+            // Elementos da UI da Jornada
+            const journalButton = document.getElementById('journal-button');
+            const journalLiveBadge = document.getElementById('journal-live-badge');
+            const journalModal = document.getElementById('journal-modal');
+            const journalCloseBtn = document.getElementById('journal-close');
+            const journalStatusText = document.getElementById('journal-status-text');
+            const journalLiveTimer = document.getElementById('journal-live-timer');
+            const journalTodayTotal = document.getElementById('journal-today-total');
+            const journalWeekTotal = document.getElementById('journal-week-total');
+            const journalStartBtn = document.getElementById('journal-start-btn');
+            const journalStopBtn = document.getElementById('journal-stop-btn');
+            const journalHistory = document.getElementById('journal-history');
+
+            function updateJournalLiveDisplays() {
+                const todaySeconds = getTodayWorkedSeconds();
+                if (journalLiveBadge) journalLiveBadge.textContent = formatHMS(todaySeconds);
+                if (journalLiveTimer) journalLiveTimer.textContent = formatHMS(todaySeconds);
+            }
+
+            function renderJournalHistory() {
+                const journal = loadJournal();
+                const days = Object.keys(journal).sort().reverse().slice(0, 14);
+                if (days.length === 0) {
+                    journalHistory.innerHTML = '<p class="text-gray-400 text-xs">Nenhum registro ainda.</p>';
+                    return;
+                }
+                journalHistory.innerHTML = days.map(key => {
+                    const secs = journal[key].totalSeconds || 0;
+                    const [y, m, d] = key.split('-');
+                    const isToday = key === todayKey();
+                    return `
+                        <div class="flex justify-between items-center px-2 py-1 rounded ${isToday ? 'bg-teal-50 font-semibold' : ''}">
+                            <span>${d}/${m}/${y}${isToday ? ' (hoje)' : ''}</span>
+                            <span>${formatHoursMinutes(secs)}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function updateJournalUI() {
+                const todaySeconds = getTodayWorkedSeconds();
+                const weekSeconds = getWeekWorkedSeconds();
+                journalTodayTotal.textContent = formatHoursMinutes(todaySeconds);
+                journalWeekTotal.textContent = formatHoursMinutes(weekSeconds);
+                journalLiveTimer.textContent = formatHMS(todaySeconds);
+
+                if (activeSession) {
+                    journalStatusText.textContent = 'Jornada em andamento — contabilizando suas horas...';
+                    journalStartBtn.classList.add('hidden');
+                    journalStopBtn.classList.remove('hidden');
+                    journalLiveBadge.classList.remove('hidden');
+                    journalLiveBadge.textContent = formatHMS(todaySeconds);
+                } else {
+                    journalStatusText.textContent = todaySeconds > 0 ? 'Jornada pausada hoje' : 'Jornada não iniciada hoje';
+                    journalStartBtn.classList.remove('hidden');
+                    journalStopBtn.classList.add('hidden');
+                    journalLiveBadge.classList.add('hidden');
+                }
+
+                renderJournalHistory();
+            }
+
+            function openJournalModal() {
+                updateJournalUI();
+                journalModal.classList.remove('modal-hidden');
+                journalModal.classList.add('modal-visible');
+                modalOverlay.classList.remove('modal-hidden');
+                modalOverlay.classList.add('modal-visible');
+                lucide.createIcons();
+            }
+
+            function closeJournalModal() {
+                journalModal.classList.add('modal-hidden');
+                journalModal.classList.remove('modal-visible');
+                modalOverlay.classList.add('modal-hidden');
+                modalOverlay.classList.remove('modal-visible');
+            }
+
+            journalButton.addEventListener('click', openJournalModal);
+            journalCloseBtn.addEventListener('click', closeJournalModal);
+            journalStartBtn.addEventListener('click', startJournalSession);
+            journalStopBtn.addEventListener('click', stopJournalSession);
+
+            function initJournalSystem() {
+                // Se havia uma sessão ativa salva (ex: o navegador fechou de forma abrupta sem disparar o
+                // evento de saída), o tempo já foi creditado a cada 20s pelo heartbeat — só limpamos o marcador.
+                if (loadActiveSession()) {
+                    saveActiveSession(null);
+                }
+
+                updateJournalUI();
+
+                // Pergunta automaticamente apenas na primeira vez que o Kanban é aberto no dia após as 18h
+                const now = new Date();
+                const key = todayKey(now);
+                const journal = loadJournal();
+                const entry = journal[key];
+                if ((!entry || !entry.promptedToday) && now.getHours() >= WORK_START_HOUR) {
+                    if (!journal[key]) journal[key] = { totalSeconds: 0, promptedToday: true };
+                    else journal[key].promptedToday = true;
+                    saveJournal(journal);
+                    openJournalModal();
+                }
+            }
+
+            window.addEventListener('beforeunload', () => {
+                if (activeSession) {
+                    journalHeartbeatTick();
+                    saveActiveSession(null);
+                }
+            });
+
+            initJournalSystem();
+
+            // ============ HISTÓRICO DE ATIVIDADES ============
+            const ACTIVITY_LOG_KEY = 'kanbanActivityLog';
+            const ACTIVITY_LOG_MAX_ENTRIES = 500;
+            const ACTIVITY_TYPE_META = {
+                created: { icon: 'plus-circle', color: 'text-green-600', label: 'Criada' },
+                moved: { icon: 'arrow-right-circle', color: 'text-blue-600', label: 'Movida' },
+                edited: { icon: 'pencil', color: 'text-amber-600', label: 'Editada' },
+                deleted: { icon: 'trash-2', color: 'text-red-600', label: 'Excluída' },
+                duplicated: { icon: 'copy', color: 'text-purple-600', label: 'Duplicada' }
+            };
+
+            function loadActivityLog() {
+                try {
+                    const log = JSON.parse(localStorage.getItem(ACTIVITY_LOG_KEY));
+                    return Array.isArray(log) ? log : [];
+                } catch {
+                    return [];
+                }
+            }
+
+            function saveActivityLog(log) {
+                localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(log.slice(-ACTIVITY_LOG_MAX_ENTRIES)));
+            }
+
+            function logActivity(type, cardTitle, details) {
+                const log = loadActivityLog();
+                log.push({
+                    timestamp: new Date().toISOString(),
+                    type,
+                    cardTitle: cardTitle || '(sem título)',
+                    details: details || ''
+                });
+                saveActivityLog(log);
+            }
+
+            const historyButton = document.getElementById('history-button');
+            const historyModal = document.getElementById('history-modal');
+            const historyCloseBtn = document.getElementById('history-close');
+            const historySearchInput = document.getElementById('history-search');
+            const historyClearBtn = document.getElementById('history-clear-btn');
+            const historyListEl = document.getElementById('history-list');
+
+            function renderHistoryList() {
+                const query = historySearchInput.value.toLowerCase().trim();
+                const log = loadActivityLog().slice().reverse();
+                const filtered = log.filter(entry => {
+                    if (!query) return true;
+                    const meta = ACTIVITY_TYPE_META[entry.type] || {};
+                    const text = `${entry.cardTitle} ${meta.label || ''} ${entry.details}`.toLowerCase();
+                    return text.includes(query);
+                });
+
+                if (filtered.length === 0) {
+                    historyListEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">Nenhuma atividade registrada ainda.</p>';
+                    return;
+                }
+
+                historyListEl.innerHTML = filtered.map(entry => {
+                    const meta = ACTIVITY_TYPE_META[entry.type] || { icon: 'circle', color: 'text-gray-500', label: entry.type };
+                    const date = new Date(entry.timestamp);
+                    const dateStr = isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR');
+                    return `
+                        <div class="flex items-start gap-3 px-2 py-2 rounded hover:bg-gray-50 border-b border-gray-100">
+                            <i data-lucide="${meta.icon}" class="w-4 h-4 mt-0.5 shrink-0 ${meta.color}"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="font-medium text-gray-800 truncate">${entry.cardTitle}</span>
+                                    <span class="text-xs text-gray-400 shrink-0">${dateStr}</span>
+                                </div>
+                                <div class="text-xs ${meta.color}">${meta.label}${entry.details ? ' · ' + entry.details : ''}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                lucide.createIcons({ nodes: [historyListEl] });
+            }
+
+            function openHistoryModal() {
+                historySearchInput.value = '';
+                renderHistoryList();
+                historyModal.classList.remove('modal-hidden');
+                historyModal.classList.add('modal-visible');
+                modalOverlay.classList.remove('modal-hidden');
+                modalOverlay.classList.add('modal-visible');
+            }
+
+            function closeHistoryModal() {
+                historyModal.classList.add('modal-hidden');
+                historyModal.classList.remove('modal-visible');
+                modalOverlay.classList.add('modal-hidden');
+                modalOverlay.classList.remove('modal-visible');
+            }
+
+            historyButton.addEventListener('click', openHistoryModal);
+            historyCloseBtn.addEventListener('click', closeHistoryModal);
+            historySearchInput.addEventListener('input', renderHistoryList);
+            historyClearBtn.addEventListener('click', () => {
+                if (!confirm('Apagar todo o histórico de atividades? Essa ação não pode ser desfeita.')) return;
+                saveActivityLog([]);
+                renderHistoryList();
+            });
 
             // --- RELATÓRIO ---
             const reportModal = document.getElementById('report-modal');
@@ -985,13 +2007,22 @@
             const reportClose = document.getElementById('report-close');
             const reportCloseBtn = document.getElementById('report-close-btn');
 
+            const reportHourlyRateInput = document.getElementById('report-hourly-rate');
+
             function openReportModal() {
                 reportModal.classList.remove('modal-hidden');
                 reportModal.classList.add('modal-visible');
                 reportOverlay.classList.remove('modal-hidden');
                 reportOverlay.classList.add('modal-visible');
+                const rate = getHourlyRate();
+                reportHourlyRateInput.value = rate > 0 ? rate : '';
                 generateReport();
             }
+
+            reportHourlyRateInput.addEventListener('input', () => {
+                setHourlyRate(reportHourlyRateInput.value);
+                generateReport();
+            });
 
             function closeReportModal() {
                 reportModal.classList.add('modal-hidden');
@@ -1035,7 +2066,10 @@
                             categoria: card.dataset.categoria,
                             responsavel: card.dataset.responsavel,
                             columnId: columnId,
-                            columnName: columnNames[columnId]
+                            columnName: columnNames[columnId],
+                            horasEstimadas: card.dataset.horasEstimadas,
+                            elapsedSeconds: getCardElapsedSeconds(card),
+                            isTracking: !!card.dataset.trackingStart
                         });
                     });
                 });
@@ -1059,6 +2093,109 @@
                 document.getElementById('completion-percentage').textContent = completionPercentage + '%';
                 document.getElementById('in-progress-count').textContent = inProgress;
                 document.getElementById('overdue-count').textContent = overdue;
+
+                // NOVO: Total de horas trabalhadas nas tarefas
+                const totalWorkedSeconds = allCards.reduce((sum, c) => sum + (c.elapsedSeconds || 0), 0);
+                document.getElementById('total-horas-trabalhadas').textContent = formatHoursMinutes(totalWorkedSeconds);
+
+                // NOVO: Total de horas registradas na jornada diária
+                const journalDataReport = loadJournal();
+                const journalTotalSeconds = Object.values(journalDataReport).reduce((sum, e) => sum + (e.totalSeconds || 0), 0);
+                document.getElementById('total-horas-jornada').textContent = formatHoursMinutes(journalTotalSeconds);
+
+                // NOVO: Valor faturado com base nas horas de jornada e no valor/hora configurado
+                const hourlyRate = getHourlyRate();
+                document.getElementById('total-valor-faturado').textContent = formatCurrency(secondsToValue(journalTotalSeconds, hourlyRate));
+
+                // NOVO: Horas trabalhadas por responsável
+                const horasPorResponsavel = {};
+                allCards.forEach(c => {
+                    const resp = c.responsavel && c.responsavel.trim() ? c.responsavel.trim() : 'Sem responsável';
+                    horasPorResponsavel[resp] = (horasPorResponsavel[resp] || 0) + (c.elapsedSeconds || 0);
+                });
+                const respEntries = Object.entries(horasPorResponsavel).sort((a, b) => b[1] - a[1]);
+                let horasRespHTML = '';
+                if (respEntries.length === 0 || totalWorkedSeconds === 0) {
+                    horasRespHTML = '<p class="text-sm text-gray-400">Nenhum dado de horas registrado ainda.</p>';
+                } else {
+                    const maxResp = Math.max(1, ...respEntries.map(([, secs]) => secs));
+                    respEntries.forEach(([name, secs]) => {
+                        const pct = Math.round((secs / maxResp) * 100);
+                        horasRespHTML += `
+                            <div class="mb-4">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span class="text-sm font-medium text-gray-700">${name}</span>
+                                    <span class="text-sm font-semibold text-gray-900">${formatHoursMinutes(secs)}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="background: #0d9488; width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('horas-distribution').innerHTML = horasRespHTML;
+
+                // NOVO: Tempo médio por tarefa (considera apenas tarefas com tempo registrado)
+                const cardsComTempo = allCards.filter(c => (c.elapsedSeconds || 0) > 0);
+                const tempoMedioSegundos = cardsComTempo.length > 0
+                    ? cardsComTempo.reduce((sum, c) => sum + c.elapsedSeconds, 0) / cardsComTempo.length
+                    : 0;
+                document.getElementById('tempo-medio-tarefa').textContent = formatHoursMinutes(tempoMedioSegundos);
+
+                // NOVO: Distribuição por categoria
+                const categoriaDistribution = {};
+                allCards.forEach(c => {
+                    const cat = c.categoria && c.categoria.trim() ? c.categoria.trim() : 'Sem categoria';
+                    categoriaDistribution[cat] = (categoriaDistribution[cat] || 0) + 1;
+                });
+                const catEntries = Object.entries(categoriaDistribution).sort((a, b) => b[1] - a[1]);
+                let categoriaChartHTML = '';
+                if (catEntries.length === 0) {
+                    categoriaChartHTML = '<p class="text-sm text-gray-400">Nenhuma categoria registrada ainda.</p>';
+                } else {
+                    catEntries.forEach(([name, count]) => {
+                        const percentage = total === 0 ? 0 : Math.round((count / total) * 100);
+                        categoriaChartHTML += `
+                            <div class="mb-4">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span class="text-sm font-medium text-gray-700">${name}</span>
+                                    <span class="text-sm font-semibold text-gray-900">${count} (${percentage}%)</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="background: #6366f1; width: ${percentage}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('categoria-distribution').innerHTML = categoriaChartHTML;
+
+                // NOVO: Jornada de trabalho — últimos 14 dias
+                const jornadaDays = Object.keys(journalDataReport).sort().reverse().slice(0, 14);
+                let jornadaHTML = '';
+                if (jornadaDays.length === 0) {
+                    jornadaHTML = '<p class="text-sm text-gray-400">Nenhum registro de jornada ainda.</p>';
+                } else {
+                    const maxJornadaSecs = Math.max(1, ...jornadaDays.map(k => journalDataReport[k].totalSeconds || 0));
+                    jornadaDays.forEach(key => {
+                        const secs = journalDataReport[key].totalSeconds || 0;
+                        const pct = Math.round((secs / maxJornadaSecs) * 100);
+                        const [y, m, d] = key.split('-');
+                        jornadaHTML += `
+                            <div class="mb-3">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <span class="text-sm font-medium text-gray-700">${d}/${m}/${y}</span>
+                                    <span class="text-sm font-semibold text-gray-900">${formatHoursMinutes(secs)}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="background: #0f766e; width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('jornada-distribution').innerHTML = jornadaHTML;
 
                 // Gráfico de Distribuição por Coluna
                 const columnDistribution = {};
@@ -1136,14 +2273,23 @@
                         }
                     }
 
+                    const horasTrabDisplay = card.isTracking
+                        ? `<span style="color:#2563eb;font-weight:600;">${formatHoursMinutes(card.elapsedSeconds)} ⏱</span>`
+                        : formatHoursMinutes(card.elapsedSeconds);
+                    const estimadoDisplay = card.horasEstimadas ? `${card.horasEstimadas}h` : '-';
+                    const valorDisplay = hourlyRate > 0 ? formatCurrency(secondsToValue(card.elapsedSeconds, hourlyRate)) : '-';
+
                     tableHTML += `
                         <tr>
-                            <td><strong>${card.title}</strong></td>
+                            <td class="cell-title"><strong>${card.title}</strong></td>
                             <td><span style="padding: 4px 8px; border-radius: 4px; background: ${columnColors[card.columnId]}; color: #1f2937;">${card.columnName}</span></td>
                             <td><span style="padding: 4px 8px; border-radius: 4px; ${necessidadeColors[card.necessidade]}">${card.necessidade}</span></td>
                             <td style="${prazoStyle}">${prazoDisplay}</td>
                             <td>${card.responsavel || '-'}</td>
                             <td>${card.categoria || '-'}</td>
+                            <td>${horasTrabDisplay}</td>
+                            <td>${estimadoDisplay}</td>
+                            <td>${valorDisplay}</td>
                         </tr>
                     `;
                 });
@@ -1172,7 +2318,10 @@
                             categoria: card.dataset.categoria,
                             responsavel: card.dataset.responsavel,
                             columnId: columnId,
-                            columnName: columnNames[columnId]
+                            columnName: columnNames[columnId],
+                            horasEstimadas: card.dataset.horasEstimadas,
+                            elapsedSeconds: getCardElapsedSeconds(card),
+                            isTracking: !!card.dataset.trackingStart
                         });
                     });
                 });
@@ -1181,7 +2330,7 @@
                 const completed = allCards.filter(c => c.columnId === '4').length;
                 const inProgress = allCards.filter(c => c.columnId === '2' || c.columnId === '3').length;
                 const completionPercentage = total === 0 ? 0 : Math.round((completed / total) * 100);
-                
+
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const overdue = allCards.filter(c => {
@@ -1189,6 +2338,21 @@
                     const prazoDate = new Date(c.prazo);
                     return prazoDate < today;
                 }).length;
+
+                // NOVO: Horas trabalhadas (tarefas e jornada diária)
+                const totalWorkedSecondsPdf = allCards.reduce((sum, c) => sum + (c.elapsedSeconds || 0), 0);
+                const journalDataPdf = loadJournal();
+                const journalTotalSecondsPdf = Object.values(journalDataPdf).reduce((sum, e) => sum + (e.totalSeconds || 0), 0);
+
+                // NOVO: Valor faturado
+                const hourlyRatePdf = getHourlyRate();
+                const totalValuePdf = secondsToValue(journalTotalSecondsPdf, hourlyRatePdf);
+
+                // NOVO: Tempo médio por tarefa
+                const cardsComTempoPdf = allCards.filter(c => (c.elapsedSeconds || 0) > 0);
+                const tempoMedioSegundosPdf = cardsComTempoPdf.length > 0
+                    ? cardsComTempoPdf.reduce((sum, c) => sum + c.elapsedSeconds, 0) / cardsComTempoPdf.length
+                    : 0;
 
                 // Gera HTML para o PDF
                 let pdfHTML = `
@@ -1199,8 +2363,8 @@
                             body { font-family: Arial, sans-serif; color: #333; }
                             h1 { text-align: center; color: #1f2937; margin-bottom: 30px; }
                             h2 { color: #374151; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
-                            .stats { display: flex; justify-content: space-around; margin-bottom: 30px; }
-                            .stat-box { text-align: center; padding: 15px; background: #f3f4f6; border-radius: 8px; width: 22%; }
+                            .stats { display: flex; flex-wrap: wrap; justify-content: space-around; gap: 10px; margin-bottom: 30px; }
+                            .stat-box { text-align: center; padding: 15px; background: #f3f4f6; border-radius: 8px; width: 30%; box-sizing: border-box; }
                             .stat-value { font-size: 28px; font-weight: bold; color: #4f46e5; }
                             .stat-label { font-size: 12px; color: #6b7280; margin-top: 5px; }
                             .chart-section { margin-bottom: 25px; }
@@ -1240,6 +2404,22 @@
                             <div class="stat-box">
                                 <div class="stat-value">${overdue}</div>
                                 <div class="stat-label">Atrasadas</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${formatHoursMinutes(totalWorkedSecondsPdf)}</div>
+                                <div class="stat-label">Horas em Tarefas</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${formatHoursMinutes(journalTotalSecondsPdf)}</div>
+                                <div class="stat-label">Horas de Jornada</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="color:#15803d;">${formatCurrency(totalValuePdf)}</div>
+                                <div class="stat-label">Valor Faturado</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value">${formatHoursMinutes(tempoMedioSegundosPdf)}</div>
+                                <div class="stat-label">Tempo Médio/Tarefa</div>
                             </div>
                         </div>
 
@@ -1308,6 +2488,104 @@
                 pdfHTML += `
                         </div>
 
+                        <h2>🏷️ Distribuição por Categoria</h2>
+                        <div class="chart-section">
+                `;
+
+                // Distribuição por categoria
+                const categoriaDistributionPdf = {};
+                allCards.forEach(c => {
+                    const cat = c.categoria && c.categoria.trim() ? c.categoria.trim() : 'Sem categoria';
+                    categoriaDistributionPdf[cat] = (categoriaDistributionPdf[cat] || 0) + 1;
+                });
+                const catEntriesPdf = Object.entries(categoriaDistributionPdf).sort((a, b) => b[1] - a[1]);
+                if (catEntriesPdf.length === 0) {
+                    pdfHTML += `<p style="font-size:12px;color:#9ca3af;">Nenhuma categoria registrada ainda.</p>`;
+                } else {
+                    catEntriesPdf.forEach(([name, count]) => {
+                        const percentage = total === 0 ? 0 : Math.round((count / total) * 100);
+                        pdfHTML += `
+                            <div class="chart-item">
+                                <div class="chart-label">
+                                    <span>${name}</span>
+                                    <span>${count} (${percentage}%)</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="background:#6366f1; width: ${percentage}%">${percentage}%</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                pdfHTML += `
+                        </div>
+
+                        <h2>⏱ Horas Trabalhadas por Responsável</h2>
+                        <div class="chart-section">
+                `;
+
+                // Horas trabalhadas por responsável
+                const horasPorResponsavelPdf = {};
+                allCards.forEach(c => {
+                    const resp = c.responsavel && c.responsavel.trim() ? c.responsavel.trim() : 'Sem responsável';
+                    horasPorResponsavelPdf[resp] = (horasPorResponsavelPdf[resp] || 0) + (c.elapsedSeconds || 0);
+                });
+                const respEntriesPdf = Object.entries(horasPorResponsavelPdf).sort((a, b) => b[1] - a[1]);
+                if (respEntriesPdf.length === 0 || totalWorkedSecondsPdf === 0) {
+                    pdfHTML += `<p style="font-size:12px;color:#9ca3af;">Nenhum dado de horas registrado ainda.</p>`;
+                } else {
+                    const maxRespPdf = Math.max(1, ...respEntriesPdf.map(([, secs]) => secs));
+                    respEntriesPdf.forEach(([name, secs]) => {
+                        const pct = Math.round((secs / maxRespPdf) * 100);
+                        pdfHTML += `
+                            <div class="chart-item">
+                                <div class="chart-label">
+                                    <span>${name}</span>
+                                    <span>${formatHoursMinutes(secs)}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="background:#0d9488; width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                pdfHTML += `
+                        </div>
+
+                        <h2>📅 Jornada de Trabalho (Últimos 14 dias)</h2>
+                        <div class="chart-section">
+                `;
+
+                // Jornada de trabalho
+                const jornadaDaysPdf = Object.keys(journalDataPdf).sort().reverse().slice(0, 14);
+                if (jornadaDaysPdf.length === 0) {
+                    pdfHTML += `<p style="font-size:12px;color:#9ca3af;">Nenhum registro de jornada ainda.</p>`;
+                } else {
+                    const maxJornadaSecsPdf = Math.max(1, ...jornadaDaysPdf.map(k => journalDataPdf[k].totalSeconds || 0));
+                    jornadaDaysPdf.forEach(key => {
+                        const secs = journalDataPdf[key].totalSeconds || 0;
+                        const pct = Math.round((secs / maxJornadaSecsPdf) * 100);
+                        const [y, m, d] = key.split('-');
+                        pdfHTML += `
+                            <div class="chart-item">
+                                <div class="chart-label">
+                                    <span>${d}/${m}/${y}</span>
+                                    <span>${formatHoursMinutes(secs)}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="background:#0f766e; width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                pdfHTML += `
+                        </div>
+
                         <div class="page-break"></div>
 
                         <h2>📋 Detalhes de Todas as Tarefas</h2>
@@ -1320,6 +2598,9 @@
                                     <th>Prazo</th>
                                     <th>Responsável</th>
                                     <th>Categoria</th>
+                                    <th>Horas Trab.</th>
+                                    <th>Estimado</th>
+                                    <th>Valor (R$)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1340,6 +2621,12 @@
                         'Crítica': 'priority-critical'
                     }[card.necessidade] || '';
 
+                    const horasTrabDisplayPdf = card.isTracking
+                        ? `${formatHoursMinutes(card.elapsedSeconds)} (ativo)`
+                        : formatHoursMinutes(card.elapsedSeconds);
+                    const estimadoDisplayPdf = card.horasEstimadas ? `${card.horasEstimadas}h` : '-';
+                    const valorDisplayPdf = hourlyRatePdf > 0 ? formatCurrency(secondsToValue(card.elapsedSeconds, hourlyRatePdf)) : '-';
+
                     pdfHTML += `
                         <tr>
                             <td><strong>${card.title}</strong></td>
@@ -1348,6 +2635,9 @@
                             <td>${prazoDisplay}</td>
                             <td>${card.responsavel || '-'}</td>
                             <td>${card.categoria || '-'}</td>
+                            <td>${horasTrabDisplayPdf}</td>
+                            <td>${estimadoDisplayPdf}</td>
+                            <td>${valorDisplayPdf}</td>
                         </tr>
                     `;
                 });
@@ -1376,5 +2666,9 @@
         });
     </script>
 
+    <div id="save-toast" class="fixed bottom-5 right-5 bg-green-700 text-white px-4 py-2 rounded-xl shadow-xl text-sm font-semibold flex items-center gap-2 z-50 pointer-events-none" style="opacity:0; transition: opacity 0.4s ease;">
+        <i data-lucide="check-circle" class="w-4 h-4"></i>
+        <span id="save-toast-msg">Salvo automaticamente</span>
+    </div>
 </body>
 </html>

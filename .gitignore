@@ -1,0 +1,10 @@
+# Dependencies
+node_modules/
+
+# Dados reais do quadro (gerados em uso; nao versionar)
+dados-salvos/kanban.json
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
